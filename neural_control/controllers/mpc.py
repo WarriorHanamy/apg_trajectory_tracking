@@ -1,28 +1,25 @@
 """
 Standard MPC for Passing through a dynamic gate
 """
+
 import casadi as ca
 import numpy as np
-import time
-from os import system
 
-from neural_control.dynamics.quad_dynamics_flightmare import (
-    FlightmareDynamicsMPC
-)
+from neural_control.dynamics.quad_dynamics_flightmare import FlightmareDynamicsMPC
 from neural_control.dynamics.quad_dynamics_simple import SimpleDynamicsMPC
 from neural_control.dynamics.fixed_wing_2D import fixed_wing_dynamics_mpc
 from neural_control.dynamics.fixed_wing_dynamics import FixedWingDynamicsMPC
 from neural_control.dynamics.cartpole_dynamics import CartpoleDynamicsMPC
 
 
-class MPC(object):
+class MPC:
     """
     Nonlinear MPC
     """
 
     def __init__(self, horizon=20, dt=0.05, dynamics="high_mpc", **kwargs):
         """
-        Nonlinear MPC for quadrotor control        
+        Nonlinear MPC for quadrotor control
         """
 
         self.dynamics_model = dynamics
@@ -40,9 +37,12 @@ class MPC(object):
             np.vstack(
                 (
                     np.expand_dims(np.arange(0, self._T - 0.001, self._dt), 0),
-                    np.zeros((1, self._N)), np.zeros((1, self._N)) + 10
+                    np.zeros((1, self._N)),
+                    np.zeros((1, self._N)) + 10,
                 )
-            ), 1, 0
+            ),
+            1,
+            0,
         )
 
         # cost matrix for tracking the pendulum motion
@@ -112,9 +112,9 @@ class MPC(object):
         self._Q_pen = np.diag([100, 100, 100, 0, 0, 0, 10, 10, 10, 1, 1, 1])
         # initial state and control action
         self._quad_s0 = (np.zeros(12)).tolist()
-        self._quad_u0 = [.5, .5, .5, .5]
+        self._quad_u0 = [0.5, 0.5, 0.5, 0.5]
         # default u
-        self._default_u = [.5, .5, .5, .5]
+        self._default_u = [0.5, 0.5, 0.5, 0.5]
 
     def _initParamsFixedWing_2D(self):
         self._s_dim = 6
@@ -128,9 +128,9 @@ class MPC(object):
         self._Q_pen = np.diag([1000, 1000, 0, 0, 0, 0])
         # initial states
         self._quad_s0 = np.array([0, 0, 10, 0, 0, 0]).tolist()
-        self._quad_u0 = [.25, .5]
+        self._quad_u0 = [0.25, 0.5]
         # default u
-        self._default_u = [.25, .5]
+        self._default_u = [0.25, 0.5]
 
     def _initParamsFixedWing_3D(self):
         self._s_dim = 12
@@ -144,11 +144,13 @@ class MPC(object):
         # initial states
         self._quad_s0 = np.zeros(12).tolist()
         self._quad_s0[3] = 11
-        self._quad_u0 = [.25, .5, .5, .5]
+        self._quad_u0 = [0.25, 0.5, 0.5, 0.5]
         # default u
-        self._default_u = [.25, .5, .5, .5]
+        self._default_u = [0.25, 0.5, 0.5, 0.5]
 
-    def _initDynamics(self, ):
+    def _initDynamics(
+        self,
+    ):
         # # # # # # # # # # # # # # # # # # #
         # ---------- Input States -----------
         # # # # # # # # # # # # # # # # # # #
@@ -187,9 +189,9 @@ class MPC(object):
         cost_u = Delta_u.T @ self._Q_u @ Delta_u
 
         #
-        f_cost_goal = ca.Function('cost_goal', [Delta_s], [cost_goal])
-        f_cost_gap = ca.Function('cost_gap', [Delta_p], [cost_gap])
-        f_cost_u = ca.Function('cost_u', [Delta_u], [cost_u])
+        f_cost_goal = ca.Function("cost_goal", [Delta_s], [cost_goal])
+        f_cost_gap = ca.Function("cost_gap", [Delta_p], [cost_gap])
+        f_cost_u = ca.Function("cost_u", [Delta_u], [cost_u])
 
         #
         # # # # # # # # # # # # # # # # # # # #
@@ -205,10 +207,8 @@ class MPC(object):
         self.lbg = []  # lower bound of constrait functions, lbg < g
         self.ubg = []  # upper bound of constrait functions, g < ubg
 
-        u_min = [self._thrust_min
-                 ] + [self._w_min_xy for _ in range(self._u_dim - 1)]
-        u_max = [self._thrust_max
-                 ] + [self._w_max_xy for _ in range(self._u_dim - 1)]
+        u_min = [self._thrust_min] + [self._w_min_xy for _ in range(self._u_dim - 1)]
+        u_max = [self._thrust_max] + [self._w_max_xy for _ in range(self._u_dim - 1)]
         x_bound = ca.inf
         x_min = [-x_bound for _ in range(self._s_dim)]
         x_max = [+x_bound for _ in range(self._s_dim)]
@@ -216,13 +216,11 @@ class MPC(object):
         g_min = [0 for _ in range(self._s_dim)]
         g_max = [0 for _ in range(self._s_dim)]
 
-        P = ca.SX.sym(
-            "P", self._s_dim + (self._s_dim + 3) * self._N + self._s_dim
-        )
+        P = ca.SX.sym("P", self._s_dim + (self._s_dim + 3) * self._N + self._s_dim)
         X = ca.SX.sym("X", self._s_dim, self._N + 1)
         U = ca.SX.sym("U", self._u_dim, self._N)
         #
-        X_next = fMap(X[:, :self._N], U)
+        X_next = fMap(X[:, : self._N], U)
 
         # "Lift" initial conditions
         self.nlp_w += [X[:, 0]]
@@ -231,7 +229,7 @@ class MPC(object):
         self.ubw += x_max
 
         # # starting point.
-        self.nlp_g += [X[:, 0] - P[0:self._s_dim]]
+        self.nlp_g += [X[:, 0] - P[0 : self._s_dim]]
         self.lbg += g_min
         self.ubg += g_max
 
@@ -250,14 +248,18 @@ class MPC(object):
             # cost for tracking the goal position
             cost_goal_k, cost_gap_k = 0, 0
             if k >= self._N - 1:  # The goal postion.
-                delta_s_k = (
-                    X[:, k + 1] - P[self._s_dim + (self._s_dim + 3) * self._N:]
-                )
+                delta_s_k = X[:, k + 1] - P[self._s_dim + (self._s_dim + 3) * self._N :]
                 cost_goal_k = f_cost_goal(delta_s_k)
             else:
                 # cost for tracking the moving gap
-                delta_p_k = (X[:, k+1] - P[self._s_dim+(self._s_dim+3)*k : \
-                    self._s_dim+(self._s_dim+3)*(k+1)-3])
+                delta_p_k = (
+                    X[:, k + 1]
+                    - P[
+                        self._s_dim + (self._s_dim + 3) * k : self._s_dim
+                        + (self._s_dim + 3) * (k + 1)
+                        - 3
+                    ]
+                )
                 cost_gap_k = f_cost_gap(delta_p_k)
 
             delta_u_k = U[:, k] - self._default_u
@@ -279,23 +281,23 @@ class MPC(object):
 
         # nlp objective
         nlp_dict = {
-            'f': self.mpc_obj,
-            'x': ca.vertcat(*self.nlp_w),
-            'p': P,
-            'g': ca.vertcat(*self.nlp_g)
+            "f": self.mpc_obj,
+            "x": ca.vertcat(*self.nlp_w),
+            "p": P,
+            "g": ca.vertcat(*self.nlp_g),
         }
 
         # # # # # # # # # # # # # # # # # # #
         # -- ipopt
         # # # # # # # # # # # # # # # # # # #
         ipopt_options = {
-            'verbose': False, \
+            "verbose": False,
             "ipopt.tol": 1e-4,
             "ipopt.acceptable_tol": 1e-4,
             "ipopt.max_iter": 100,
             "ipopt.warm_start_init_point": "yes",
             "ipopt.print_level": 0,
-            "print_time": False
+            "print_time": False,
         }
 
         self.solver = ca.nlpsol("solver", "ipopt", nlp_dict, ipopt_options)
@@ -306,11 +308,12 @@ class MPC(object):
         # # # # # # # # # # # # # # # #
         #
         if self.dynamics_model == "high_mpc":
-            start = ref_states[:self._s_dim]
-            end = ref_states[-self._s_dim:]
+            start = ref_states[: self._s_dim]
+            end = ref_states[-self._s_dim :]
             end[3:7] = [0 for _ in range(4)]
-            middle_ref_states = np.array(ref_states[self._s_dim:-self._s_dim]
-                                         ).reshape((10, 13))
+            middle_ref_states = np.array(
+                ref_states[self._s_dim : -self._s_dim]
+            ).reshape((10, 13))
             middle_ref_states[:, 3:7] = 0
             ref_states = start + middle_ref_states.flatten().tolist() + end
 
@@ -325,22 +328,22 @@ class MPC(object):
             ubx=self.ubw,
             p=ref_states,
             lbg=self.lbg,
-            ubg=self.ubg
+            ubg=self.ubg,
         )
         # print(time.time() - tic)
         #
-        sol_x0 = self.sol['x'].full()
-        opt_u = sol_x0[self._s_dim:self._s_dim + self._u_dim]
+        sol_x0 = self.sol["x"].full()
+        opt_u = sol_x0[self._s_dim : self._s_dim + self._u_dim]
 
         # Warm initialization
         self.nlp_w0 = list(
-            sol_x0[self._s_dim + self._u_dim:2 * (self._s_dim + self._u_dim)]
-        ) + list(sol_x0[self._s_dim + self._u_dim:])
+            sol_x0[self._s_dim + self._u_dim : 2 * (self._s_dim + self._u_dim)]
+        ) + list(sol_x0[self._s_dim + self._u_dim :])
         # print(self.nlp_w0)
         # print(len(self.nlp_w0))
         # #
         x0_array = np.reshape(
-            sol_x0[:-self._s_dim], newshape=(-1, self._s_dim + self._u_dim)
+            sol_x0[: -self._s_dim], newshape=(-1, self._s_dim + self._u_dim)
         )
         # np.set_printoptions(suppress=1, precision=3)
         # print(x0_array[1:, :9])
@@ -362,8 +365,7 @@ class MPC(object):
         # goal_state = changed_middle_ref_states[-1].copy().tolist()
         goal_state = np.zeros(self._s_dim)
         goal_state[:3] = (
-            2 * changed_middle_ref_states[-1, :3] -
-            changed_middle_ref_states[-2, :3]
+            2 * changed_middle_ref_states[-1, :3] - changed_middle_ref_states[-2, :3]
         )
         goal_state[6:9] = changed_middle_ref_states[-1, 6:9]
 
@@ -375,8 +377,9 @@ class MPC(object):
         high_mpc_reference = np.hstack((changed_middle_ref_states, self.addon))
 
         flattened_ref = (
-            current_state.tolist() + high_mpc_reference.flatten().tolist() +
-            goal_state.tolist()
+            current_state.tolist()
+            + high_mpc_reference.flatten().tolist()
+            + goal_state.tolist()
         )
         return flattened_ref
 
@@ -387,14 +390,13 @@ class MPC(object):
         """
         vec_to_target = ref_states - current_state[:3]
         vec_norm = np.linalg.norm(vec_to_target)
-        speed = np.sqrt(np.sum(current_state[3:6]**2))
+        speed = np.sqrt(np.sum(current_state[3:6] ** 2))
         vec_len_per_step = speed * self._dt
         vector_per_step = vec_to_target * (vec_len_per_step / vec_norm)
 
         middle_ref_states = np.zeros((self._N + 1, len(current_state)))
         for i in range(self._N + 1):
-            middle_ref_states[
-                i, :3] = current_state[:3] + (i + 1) * vector_per_step
+            middle_ref_states[i, :3] = current_state[:3] + (i + 1) * vector_per_step
 
         # np.set_printoptions(suppress=True, precision=3)
         # # print(opt_u.tolist())
@@ -407,8 +409,9 @@ class MPC(object):
         high_mpc_reference = np.hstack((middle_ref_states[:-1], self.addon))
 
         flattened_ref = (
-            current_state.tolist() + high_mpc_reference.flatten().tolist() +
-            goal_state.tolist()
+            current_state.tolist()
+            + high_mpc_reference.flatten().tolist()
+            + goal_state.tolist()
         )
 
         return flattened_ref
@@ -431,8 +434,9 @@ class MPC(object):
         high_mpc_reference = np.hstack((middle_ref_states[1:-1], self.addon))
 
         flattened_ref = (
-            current_state.tolist() + high_mpc_reference.flatten().tolist() +
-            goal_state.tolist()
+            current_state.tolist()
+            + high_mpc_reference.flatten().tolist()
+            + goal_state.tolist()
         )
         return flattened_ref
 
@@ -440,16 +444,13 @@ class MPC(object):
         if self.dynamics_model in ["simple_quad", "flightmare"]:
             preprocessed_ref = self.preprocess_quad(current_state, ref_states)
         elif self.dynamics_model in ["fixed_wing_2D", "fixed_wing_3D"]:
-            preprocessed_ref = self.preprocess_fixed_wing(
-                current_state, ref_states
-            )
+            preprocessed_ref = self.preprocess_fixed_wing(current_state, ref_states)
         elif self.dynamics_model == "cartpole":
             preprocessed_ref = self.preprocess_cartpole(current_state)
         action, _ = self.solve(preprocessed_ref)
         return np.array([action[:, 0]])
 
     def drone_dynamics_high_mpc(self, dt):
-
         self.f = self.get_dynamics_high_mpc()
 
         M = 4  # refinement
@@ -467,16 +468,20 @@ class MPC(object):
             #
             X = X + (k1 + 2 * k2 + 2 * k3 + k4) / 6
         # Fold
-        F = ca.Function('F', [X0, U], [X])
+        F = ca.Function("F", [X0, U], [X])
         return F
 
     def get_dynamics_high_mpc(self):
-        px, py, pz = ca.SX.sym('px'), ca.SX.sym('py'), ca.SX.sym('pz')
+        px, py, pz = ca.SX.sym("px"), ca.SX.sym("py"), ca.SX.sym("pz")
         #
-        qw, qx, qy, qz = ca.SX.sym('qw'), ca.SX.sym('qx'), ca.SX.sym('qy'), \
-            ca.SX.sym('qz')
+        qw, qx, qy, qz = (
+            ca.SX.sym("qw"),
+            ca.SX.sym("qx"),
+            ca.SX.sym("qy"),
+            ca.SX.sym("qz"),
+        )
         #
-        vx, vy, vz = ca.SX.sym('vx'), ca.SX.sym('vy'), ca.SX.sym('vz')
+        vx, vy, vz = ca.SX.sym("vx"), ca.SX.sym("vy"), ca.SX.sym("vz")
 
         # -- conctenated vector
         self._x = ca.vertcat(px, py, pz, qw, qx, qy, qz, vx, vy, vz)
@@ -485,8 +490,12 @@ class MPC(object):
         # --------- Control Command ------------
         # # # # # # # # # # # # # # # # # # #
 
-        thrust, wx, wy, wz = ca.SX.sym('thrust'), ca.SX.sym('wx'), \
-            ca.SX.sym('wy'), ca.SX.sym('wz')
+        thrust, wx, wy, wz = (
+            ca.SX.sym("thrust"),
+            ca.SX.sym("wx"),
+            ca.SX.sym("wy"),
+            ca.SX.sym("wz"),
+        )
 
         # -- conctenated vector
         self._u = ca.vertcat(thrust, wx, wy, wz)
@@ -496,17 +505,19 @@ class MPC(object):
         # # # # # # # # # # # # # # # # # # #
 
         x_dot = ca.vertcat(
-            vx, vy, vz, 0.5 * (-wx * qx - wy * qy - wz * qz),
+            vx,
+            vy,
+            vz,
+            0.5 * (-wx * qx - wy * qy - wz * qz),
             0.5 * (wx * qw + wz * qy - wy * qz),
             0.5 * (wy * qw - wz * qx + wx * qz),
             0.5 * (wz * qw + wy * qx - wx * qy),
-            2 * (qw * qy + qx * qz) * thrust, 2 * (qy * qz - qw * qx) * thrust,
-            (qw * qw - qx * qx - qy * qy + qz * qz) * thrust - self._gz
+            2 * (qw * qy + qx * qz) * thrust,
+            2 * (qy * qz - qw * qx) * thrust,
+            (qw * qw - qx * qx - qy * qy + qz * qz) * thrust - self._gz,
             # (1 - 2*qx*qx - 2*qy*qy) * thrust - self._gz
         )
 
         #
-        func = ca.Function(
-            'f', [self._x, self._u], [x_dot], ['x', 'u'], ['ode']
-        )
+        func = ca.Function("f", [self._x, self._u], [x_dot], ["x", "u"], ["ode"])
         return func

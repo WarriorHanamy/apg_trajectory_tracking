@@ -4,15 +4,26 @@ from typing import Any
 
 import numpy as np
 import numpy.typing as npt
-
+from typing import TypeAlias
 
 FloatArray = npt.NDArray[np.float_]
 Float32Array = npt.NDArray[np.float32]
 ArrayLike = npt.ArrayLike
 
 
-class DynamicsState(object):
+class Euler: ...
 
+
+ObsComp: TypeAlias = (
+    FloatArray | Euler
+)  # position/attitude/velocity/angular_velocity/image
+Action: TypeAlias = FloatArray
+StateComp: TypeAlias = (
+    FloatArray | Euler
+)  # position/attitude/velocity/angular_velocity/rotorspeeds
+
+
+class DynamicsState:
     def __init__(self) -> None:
         self._position: FloatArray = np.zeros(3, dtype=float)
         self._attitude: Euler = Euler(0.0, 0.0, 0.0)
@@ -50,8 +61,12 @@ class DynamicsState(object):
 
     @property
     def net_rotor_speed(self) -> float:
-        return self._rotorspeeds[0] - self._rotorspeeds[1] + self._rotorspeeds[
-            2] - self._rotorspeeds[3]
+        return (
+            self._rotorspeeds[0]
+            - self._rotorspeeds[1]
+            + self._rotorspeeds[2]
+            - self._rotorspeeds[3]
+        )
 
     @property
     def formatted(self) -> dict[str, FloatArray | Euler]:
@@ -60,7 +75,7 @@ class DynamicsState(object):
             "attitude:": self._attitude,
             "velocity:": self._velocity,
             "rotorspeeds:": self._rotorspeeds,
-            "angular_velocity:": self._angular_velocity
+            "angular_velocity:": self._angular_velocity,
         }
 
     @property
@@ -70,10 +85,12 @@ class DynamicsState(object):
         """
         return np.array(
             (
-                list(self._position) + list(self._attitude._euler) +
-                list(self._velocity) + list(self._angular_velocity)
+                list(self._position)
+                + list(self._attitude._euler)
+                + list(self._velocity)
+                + list(self._angular_velocity)
             ),
-            dtype=np.float32
+            dtype=np.float32,
         )
 
     def from_np(self, state_array: FloatArray) -> None:
@@ -89,7 +106,7 @@ class DynamicsState(object):
         self._angular_velocity = state_array[9:]
 
 
-class Euler(object):
+class Euler:
     """
     Defines an Euler angle (roll, pitch, yaw). We
     do try to cache as many intermediate results
@@ -106,7 +123,7 @@ class Euler(object):
     @staticmethod
     def from_numpy_array(array: ArrayLike) -> "Euler":
         array_np = np.asarray(array, dtype=float)
-        assert array_np.shape == (3, )
+        assert array_np.shape == (3,)
         return Euler(float(array_np[0]), float(array_np[1]), float(array_np[2]))
 
     @staticmethod
@@ -149,7 +166,7 @@ class Euler(object):
         return Euler(
             float(self.roll + amount_np[0]),
             float(self.pitch + amount_np[1]),
-            float(self.yaw + amount_np[2])
+            float(self.yaw + amount_np[2]),
         )
 
     def add_to_cache(self, key: str, value: Any) -> None:
@@ -159,6 +176,4 @@ class Euler(object):
         return self._cache.get(key)
 
     def __repr__(self) -> str:
-        return "Euler(roll=%g, pitch=%g, yaw=%g)" % (
-            self.roll, self.pitch, self.yaw
-        )
+        return "Euler(roll=%g, pitch=%g, yaw=%g)" % (self.roll, self.pitch, self.yaw)

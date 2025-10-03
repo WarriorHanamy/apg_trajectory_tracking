@@ -11,32 +11,33 @@ import os
 import sys
 
 if "Apple" in sys.version:
-    if 'DYLD_FALLBACK_LIBRARY_PATH' in os.environ:
-        os.environ['DYLD_FALLBACK_LIBRARY_PATH'] += ':/usr/lib'
+    if "DYLD_FALLBACK_LIBRARY_PATH" in os.environ:
+        os.environ["DYLD_FALLBACK_LIBRARY_PATH"] += ":/usr/lib"
         # (JDS 2016/04/15): avoid bug on Anaconda 2.3.0 / Yosemite
 import pyglet
+
 try:
     import pyglet
-except ImportError as e:
+except ImportError:
     raise ImportError(
-        '''
+        """
     Cannot import pyglet.
     HINT: you can install pyglet directly via 'pip install pyglet'.
     But if you really just want to install all Gymnasium dependencies and not have to think about it,
     'pip install -e .[all]' or 'pip install gymnasium[all]' will do it.
-    '''
+    """
     )
 
 try:
     from pyglet.gl import *
-except ImportError as e:
+except ImportError:
     raise ImportError(
-        '''
+        """
     Error occurred while running `from pyglet.gl import *`
     HINT: make sure you have OpenGL install. On Ubuntu, you can run 'apt-get install python-opengl'.
     If you're running on a server, you may need a virtual frame buffer; something like this should work:
     'xvfb-run -s \"-screen 0 1400x900x24\" python <your_script.py>'
-    '''
+    """
     )
 
 import numpy as np
@@ -61,8 +62,9 @@ def get_display(spec: str | None):
         return pyglet.canvas.Display(spec)
     else:
         raise error.Error(
-            'Invalid display specification: {}. (Must be a string like :0 or None.)'
-            .format(spec)
+            "Invalid display specification: {}. (Must be a string like :0 or None.)".format(
+                spec
+            )
         )
 
 
@@ -75,9 +77,9 @@ def get_window(
     """
     Will create a pyglet window from the display specification provided.
     """
-    screen = display.get_screens()  #available screens
-    config = screen[0].get_best_config()  #selecting the first screen
-    context = config.create_context(None)  #create GL context
+    screen = display.get_screens()  # available screens
+    config = screen[0].get_best_config()  # selecting the first screen
+    context = config.create_context(None)  # create GL context
 
     return pyglet.window.Window(
         width=width,
@@ -85,12 +87,11 @@ def get_window(
         display=display,
         config=config,
         context=context,
-        **kwargs
+        **kwargs,
     )
 
 
-class Viewer(object):
-
+class Viewer:
     def __init__(
         self,
         width: int,
@@ -127,8 +128,7 @@ class Viewer(object):
         scalex = self.width / (right - left)
         scaley = self.height / (top - bottom)
         self.transform = Transform(
-            translation=(-left * scalex, -bottom * scaley),
-            scale=(scalex, scaley)
+            translation=(-left * scalex, -bottom * scaley), scale=(scalex, scaley)
         )
 
     def add_geom(self, geom: "Geom") -> None:
@@ -212,10 +212,11 @@ class Viewer(object):
 
     def get_array(self) -> UInt8Image:
         self.window.flip()
-        image_data = pyglet.image.get_buffer_manager().get_color_buffer(
-        ).get_image_data()
+        image_data = (
+            pyglet.image.get_buffer_manager().get_color_buffer().get_image_data()
+        )
         self.window.flip()
-        arr = np.fromstring(image_data.get_data(), dtype=np.uint8, sep='')
+        arr = np.fromstring(image_data.get_data(), dtype=np.uint8, sep="")
         arr = arr.reshape(self.height, self.width, 4)
         return arr[::-1, :, 0:3]
 
@@ -230,8 +231,7 @@ def _add_attrs(geom: "Geom", attrs: dict[str, Any]) -> None:
         geom.set_linewidth(attrs["linewidth"])
 
 
-class Geom(object):
-
+class Geom:
     def __init__(self) -> None:
         self._color = Color((0, 0, 0, 1.0))
         self.attrs: list[Attr] = [self._color]
@@ -253,8 +253,7 @@ class Geom(object):
         self._color.vec4 = (r, g, b, 1)
 
 
-class Attr(object):
-
+class Attr:
     def enable(self) -> None:
         raise NotImplementedError
 
@@ -263,7 +262,6 @@ class Attr(object):
 
 
 class Transform(Attr):
-
     def __init__(
         self,
         translation: tuple[float, float] = (0.0, 0.0),
@@ -296,7 +294,6 @@ class Transform(Attr):
 
 
 class Color(Attr):
-
     def __init__(self, vec4: tuple[float, float, float, float]) -> None:
         self.vec4 = vec4
 
@@ -305,7 +302,6 @@ class Color(Attr):
 
 
 class LineStyle(Attr):
-
     def __init__(self, style: int) -> None:
         self.style = style
 
@@ -318,7 +314,6 @@ class LineStyle(Attr):
 
 
 class LineWidth(Attr):
-
     def __init__(self, stroke: float) -> None:
         self.stroke = stroke
 
@@ -327,7 +322,6 @@ class LineWidth(Attr):
 
 
 class Point(Geom):
-
     def __init__(self) -> None:
         Geom.__init__(self)
 
@@ -338,15 +332,17 @@ class Point(Geom):
 
 
 class FilledPolygon(Geom):
-
     def __init__(self, v: Sequence[tuple[float, float]]) -> None:
         Geom.__init__(self)
         self.v = v
 
     def render1(self) -> None:
-        if len(self.v) == 4: glBegin(GL_QUADS)
-        elif len(self.v) > 4: glBegin(GL_POLYGON)
-        else: glBegin(GL_TRIANGLES)
+        if len(self.v) == 4:
+            glBegin(GL_QUADS)
+        elif len(self.v) > 4:
+            glBegin(GL_POLYGON)
+        else:
+            glBegin(GL_TRIANGLES)
         for p in self.v:
             glVertex3f(p[0], p[1], 0)  # draw each vertex
         glEnd()
@@ -371,8 +367,10 @@ def make_polygon(
     v: Sequence[tuple[float, float]],
     filled: bool = True,
 ) -> Geom:
-    if filled: return FilledPolygon(v)
-    else: return PolyLine(v, True)
+    if filled:
+        return FilledPolygon(v)
+    else:
+        return PolyLine(v, True)
 
 
 def make_polyline(v: Sequence[tuple[float, float]]) -> Geom:
@@ -390,7 +388,6 @@ def make_capsule(length: float, width: float) -> Geom:
 
 
 class Compound(Geom):
-
     def __init__(self, gs: Sequence[Geom]) -> None:
         Geom.__init__(self)
         self.gs = list(gs)
@@ -403,7 +400,6 @@ class Compound(Geom):
 
 
 class PolyLine(Geom):
-
     def __init__(self, v: Sequence[tuple[float, float]], close: bool) -> None:
         Geom.__init__(self)
         self.v = v
@@ -422,7 +418,6 @@ class PolyLine(Geom):
 
 
 class Line(Geom):
-
     def __init__(
         self,
         start: tuple[float, float] = (0.0, 0.0),
@@ -442,7 +437,6 @@ class Line(Geom):
 
 
 class Image(Geom):
-
     def __init__(self, fname: str, width: float, height: float) -> None:
         Geom.__init__(self)
         self.set_color(1.0, 1.0, 1.0)
@@ -454,18 +448,14 @@ class Image(Geom):
 
     def render1(self) -> None:
         self.img.blit(
-            -self.width / 2,
-            -self.height / 2,
-            width=self.width,
-            height=self.height
+            -self.width / 2, -self.height / 2, width=self.width, height=self.height
         )
 
 
 # ================================================================
 
 
-class SimpleImageViewer(object):
-
+class SimpleImageViewer:
     def __init__(self, display: str | None = None, maxwidth: int = 500) -> None:
         self.window: pyglet.window.Window | None = None
         self.isopen = False
@@ -484,7 +474,7 @@ class SimpleImageViewer(object):
                 height=height,
                 display=self.display,
                 vsync=False,
-                resizable=True
+                resizable=True,
             )
             self.width = width
             self.height = height
@@ -499,19 +489,11 @@ class SimpleImageViewer(object):
             def on_close():
                 self.isopen = False
 
-        assert len(
-            arr.shape
-        ) == 3, "You passed in an image with the wrong number shape"
+        assert len(arr.shape) == 3, "You passed in an image with the wrong number shape"
         image = pyglet.image.ImageData(
-            arr.shape[1],
-            arr.shape[0],
-            'RGB',
-            arr.tobytes(),
-            pitch=arr.shape[1] * -3
+            arr.shape[1], arr.shape[0], "RGB", arr.tobytes(), pitch=arr.shape[1] * -3
         )
-        gl.glTexParameteri(
-            gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MAG_FILTER, gl.GL_NEAREST
-        )
+        gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MAG_FILTER, gl.GL_NEAREST)
         texture = image.get_texture()
         texture.width = self.width
         texture.height = self.height
