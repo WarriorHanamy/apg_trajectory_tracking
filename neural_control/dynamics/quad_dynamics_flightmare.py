@@ -4,11 +4,15 @@ import casadi as ca
 import numpy as np
 import torch
 
-from neural_control.dynamics._typing import ActionTensor, StateTensor
+from neural_control.dynamics._typing import (
+    ActionTensor,
+    DiscreteTimeDynamics,
+    StateTensor,
+)
 from neural_control.dynamics.quad_dynamics_base import Dynamics
 
 
-class FlightmareDynamics(Dynamics):
+class FlightmareDynamics(Dynamics, DiscreteTimeDynamics):
 
     def __init__(
         self,

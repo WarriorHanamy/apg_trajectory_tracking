@@ -10,13 +10,17 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from neural_control.dynamics._typing import ActionTensor, StateTensor
+from neural_control.dynamics._typing import (
+    ActionTensor,
+    DiscreteTimeDynamics,
+    StateTensor,
+)
 
 # lower and upper bounds:
 alpha_bound: Final[float] = float(10 / 180 * np.pi)
 
 
-class FixedWingDynamics:
+class FixedWingDynamics(DiscreteTimeDynamics):
     """
     Dynamics of a fixed wing drone
     """

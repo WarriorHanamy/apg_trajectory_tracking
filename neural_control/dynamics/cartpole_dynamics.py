@@ -12,6 +12,7 @@ import torch.nn as nn
 
 from neural_control.dynamics._typing import (
     ActionTensor,
+    DiscreteTimeDynamics,
     ImageTensor,
     SequenceBufferTensor,
     StateTensor,
@@ -29,7 +30,7 @@ target_state = 0  # torch.from_numpy(np.array([0, 0, 0, 0]))
 gravity = 9.81
 
 
-class CartpoleDynamics:
+class CartpoleDynamics(DiscreteTimeDynamics):
 
     def __init__(
         self,
