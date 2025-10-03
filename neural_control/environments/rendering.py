@@ -7,14 +7,11 @@ import time
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
-import numpy.typing as npt
 from mpl_toolkits.mplot3d import axes3d
 
-from neural_control.environments.helper_simple_env import Euler
+from neural_control.environments.helper_simple_env import Euler, FloatArray, RenderImage
 
-FloatArray = npt.NDArray[np.floating[Any]]
-Vec3 = npt.NDArray[np.floating[Any]]
-UInt8Image = npt.NDArray[np.uint8]
+Vec3 = FloatArray
 
 def body_to_world_matrix(euler: Sequence[float] | FloatArray) -> FloatArray:
     """
@@ -148,7 +145,7 @@ class Renderer:
         if self.viewer is None:
             self.viewer = rendering.Viewer(*self.viewer_shape)
 
-    def render(self, mode: str = 'human', close: bool = False) -> UInt8Image | bool | None:
+    def render(self, mode: str = 'human', close: bool = False) -> RenderImage | bool | None:
         if close:
             self.close()
             return

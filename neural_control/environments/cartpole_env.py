@@ -11,7 +11,6 @@ from typing import Any, ClassVar, Sequence
 import logging
 import cv2
 import numpy as np
-import numpy.typing as npt
 import torch
 
 from neural_control.dynamics.cartpole_dynamics import (
@@ -20,13 +19,14 @@ from neural_control.dynamics.cartpole_dynamics import (
     SequenceCartpoleDynamics,
 )
 import neural_control.environments.cartpole_rendering as rendering
+from neural_control.environments.helper_simple_env import (
+    CartPoleAction,
+    FloatArray,
+    ImageBuffer,
+    RenderImage,
+)
 
 logger = logging.getLogger(__name__)
-
-
-FloatArray = npt.NDArray[np.float_]
-ImageArray = npt.NDArray[np.uint8]
-ActionInput = torch.Tensor | np.ndarray | Sequence[float] | float
 
 
 class CartPoleEnv:
@@ -67,7 +67,7 @@ class CartPoleEnv:
 
     def _step(
         self,
-        action: ActionInput,
+        action: CartPoleAction,
         image: FloatArray | None = None,
         state_action_buffer: torch.Tensor | None = None,
         is_torch: bool = True,
@@ -129,7 +129,7 @@ class CartPoleEnv:
         self,
         mode: str = "human",
         close: bool = False,
-    ) -> ImageArray | bool | None:
+    ) -> RenderImage | bool | None:
         """
         Drawing function to visualize pendulum - Use after each update!
         """
@@ -258,10 +258,10 @@ def construct_states(
 
 
 def preprocess_img(
-    image: FloatArray | ImageArray,
+    image: FloatArray | RenderImage,
     img_height: int,
     img_width: int,
-) -> FloatArray:
+) -> ImageBuffer:
     resized = cv2.resize(
         np.mean(image, axis=2),
         dsize=(img_height, img_width),
@@ -283,7 +283,7 @@ def make_state_to_img_dataset(dataset_size: int = 2000) -> None:
     x_range = max_x_diff - min_x_diff
 
     inputs = np.zeros((dataset_size, 2))
-    images: list[FloatArray] = []
+    images: list[ImageBuffer] = []
     for i in range(dataset_size):
         random_theta = np.random.rand() * theta_range + min_theta
         random_x = np.random.rand() * theta_range + min_theta

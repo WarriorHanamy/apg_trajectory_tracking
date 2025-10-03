@@ -1,26 +1,14 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Sequence, TypeAlias
 
 import numpy as np
 import numpy.typing as npt
-from typing import TypeAlias
+import torch
 
-FloatArray = npt.NDArray[np.float_]
+FloatArray = npt.NDArray[np.floating[Any]]
 Float32Array = npt.NDArray[np.float32]
 ArrayLike = npt.ArrayLike
-
-
-class Euler: ...
-
-
-ObsComp: TypeAlias = (
-    FloatArray | Euler
-)  # position/attitude/velocity/angular_velocity/image
-Action: TypeAlias = FloatArray
-StateComp: TypeAlias = (
-    FloatArray | Euler
-)  # position/attitude/velocity/angular_velocity/rotorspeeds
 
 
 class DynamicsState:
@@ -69,7 +57,7 @@ class DynamicsState:
         )
 
     @property
-    def formatted(self) -> dict[str, FloatArray | Euler]:
+    def formatted(self) -> dict[str, StateComp]:
         return {
             "position:": self._position,
             "attitude:": self._attitude,
@@ -177,3 +165,13 @@ class Euler:
 
     def __repr__(self) -> str:
         return "Euler(roll=%g, pitch=%g, yaw=%g)" % (self.roll, self.pitch, self.yaw)
+
+
+ObsComp: TypeAlias = FloatArray | Euler  # position/attitude/velocity/angular_velocity/image
+Action: TypeAlias = FloatArray
+StateComp: TypeAlias = FloatArray | Euler  # position/attitude/velocity/angular_velocity/rotorspeeds
+UInt8Image: TypeAlias = npt.NDArray[np.uint8]
+FloatImage: TypeAlias = npt.NDArray[np.float_]
+RenderImage: TypeAlias = UInt8Image
+ImageBuffer: TypeAlias = FloatImage
+CartPoleAction: TypeAlias = torch.Tensor | npt.NDArray[np.float_] | Sequence[float] | float

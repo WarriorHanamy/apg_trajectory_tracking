@@ -9,7 +9,6 @@ from typing import Any, Protocol
 import math
 import time
 import numpy as np
-import numpy.typing as npt
 import torch
 
 import gymnasium as gym
@@ -17,13 +16,17 @@ from gymnasium import spaces
 from gymnasium.utils import seeding
 
 from neural_control.environments.rendering import Renderer, Ground, QuadCopter
-from neural_control.environments.helper_simple_env import DynamicsState, Euler
+from neural_control.environments.helper_simple_env import (
+    Action,
+    DynamicsState,
+    Euler,
+    FloatArray,
+    RenderImage,
+)
 from neural_control.trajectory.generate_trajectory import load_prepare_trajectory
 
 device = "cpu"  # torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-FloatArray = npt.NDArray[np.floating[Any]]
-UInt8Image = npt.NDArray[np.uint8]
 Tensor = torch.Tensor
 
 
@@ -87,7 +90,7 @@ class QuadRotorEnvBase(gym.Env):
 
     def step(
         self,
-        action: FloatArray,
+        action: Action,
         thresh: float = 0.4,
     ) -> tuple[FloatArray, bool]:
         """
@@ -124,7 +127,7 @@ class QuadRotorEnvBase(gym.Env):
         self,
         mode: str = "human",
         close: bool = False,
-    ) -> UInt8Image | bool | None:
+    ) -> RenderImage | bool | None:
         if not close:
             self.renderer.setup()
 

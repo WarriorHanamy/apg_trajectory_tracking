@@ -8,7 +8,6 @@ import time
 import cv2
 import gymnasium as gym
 import numpy as np
-import numpy.typing as npt
 import torch
 from gymnasium import spaces
 from gymnasium.utils import seeding
@@ -16,6 +15,12 @@ from gymnasium.utils import seeding
 from neural_control.environments.cartpole_env import CartPoleEnv
 from neural_control.environments.wing_env import SimpleWingEnv
 from neural_control.environments.drone_env import DroneDynamics, QuadRotorEnvBase
+from neural_control.environments.helper_simple_env import (
+    Action,
+    FloatArray,
+    ImageBuffer,
+    UInt8Image,
+)
 from neural_control.trajectory.q_funcs import project_to_line
 from neural_control.dataset import WingDataset, QuadDataset
 from neural_control.trajectory.generate_trajectory import (
@@ -29,11 +34,8 @@ img_width, img_height = (200, 300)
 crop_width = 60
 center_at_x = True
 
-FloatArray = npt.NDArray[np.floating[Any]]
-ImageArray = npt.NDArray[np.float_]
-UInt8Image = npt.NDArray[np.uint8]
 TorchTensor = torch.Tensor
-Observation = FloatArray | ImageArray
+Observation = FloatArray | ImageBuffer
 
 
 class CartPoleEnvRL(gym.Env, CartPoleEnv):
@@ -68,7 +70,7 @@ class CartPoleEnvRL(gym.Env, CartPoleEnv):
     def init_buffers(self) -> None:
         self.state_buffer: FloatArray = np.zeros((buffer_len, 4))
         self.action_buffer: FloatArray = np.zeros((buffer_len, 1))
-        self.image_buffer: FloatArray = np.zeros((buffer_len, 100, 120))
+        self.image_buffer: ImageBuffer = np.zeros((buffer_len, 100, 120))
 
     def set_state(self, state: FloatArray) -> None:
         self.state = state
@@ -78,7 +80,7 @@ class CartPoleEnvRL(gym.Env, CartPoleEnv):
         self,
         state: FloatArray,
         crop_width: int = crop_width,
-    ) -> ImageArray:
+    ) -> ImageBuffer:
         # image and corresponding state --> normalize x pos in image buffer!
         img_width_half = self.image_buffer.shape[2] // 2
         if center_at_x:
@@ -107,13 +109,13 @@ class CartPoleEnvRL(gym.Env, CartPoleEnv):
         obs = np.reshape(state_action_history, (self.obs_dim))
         return obs
 
-    def get_img_obs(self) -> ImageArray:
+    def get_img_obs(self) -> ImageBuffer:
         new_img = self._render(mode="rgb_array")
         self.image_buffer = np.roll(self.image_buffer, 1, axis=0)
         self.image_buffer[0] = self._preprocess_img(new_img)
         return self._convert_image_buffer(self.state)
 
-    def step(self, action: FloatArray) -> tuple[Observation, float, bool, dict[str, Any]]:
+    def step(self, action: Action) -> tuple[Observation, float, bool, dict[str, Any]]:
         super()._step(action, is_torch=False)
         # print(self.state)
         done = not self.is_upright() or self.step_ind > 250
@@ -140,7 +142,7 @@ class CartPoleEnvRL(gym.Env, CartPoleEnv):
 
         return self.obs, reward, done, info
 
-    def _preprocess_img(self, image: UInt8Image) -> ImageArray:
+    def _preprocess_img(self, image: UInt8Image) -> ImageBuffer:
         resized = cv2.resize(
             np.mean(image, axis=2),
             dsize=(img_height, img_width),
@@ -251,7 +253,7 @@ class QuadEnvRL(QuadRotorEnvBase, gym.Env):
             self.current_ref[self.current_ind, :3] - self.state[:3]
         ))
 
-    def get_reward_mpc(self, action: FloatArray) -> float:
+    def get_reward_mpc(self, action: Action) -> float:
         """
         MPC type cost function turned into reward
         """
@@ -281,7 +283,7 @@ class QuadEnvRL(QuadRotorEnvBase, gym.Env):
 
         return float(reward)
 
-    def get_reward_mario(self, action: FloatArray) -> float:
+    def get_reward_mario(self, action: Action) -> float:
         """
         ori_coeff: -0.01        # reward coefficient for orientation
         ang_vel_coeff: 0   # reward coefficient for angular velocity
@@ -340,7 +342,7 @@ class QuadEnvRL(QuadRotorEnvBase, gym.Env):
 
     def step(
         self,
-        action: FloatArray,
+        action: Action,
     ) -> tuple[FloatArray, float, bool, dict[str, Any]]:
         # rescale action
         action = (action + 1) / 2
@@ -454,7 +456,7 @@ class WingEnvRL(gym.Env, SimpleWingEnv):
         div = np.linalg.norm(drone_on_line - self.state[:3])
         return float(div)
 
-    def step(self, action: FloatArray) -> tuple[FloatArray, float, bool, dict[str, Any]]:
+    def step(self, action: Action) -> tuple[FloatArray, float, bool, dict[str, Any]]:
         self.state, _ = SimpleWingEnv.step(self, action)
         self.obs = self.state_to_obs()
 

@@ -41,12 +41,12 @@ except ImportError:
     )
 
 import numpy as np
-import numpy.typing as npt
 from gymnasium import error
+
+from neural_control.environments.helper_simple_env import RenderImage
 
 RAD2DEG = 57.29577951308232
 
-UInt8Image = npt.NDArray[np.uint8]
 
 
 def get_display(spec: str | None):
@@ -137,7 +137,7 @@ class Viewer:
     def add_onetime(self, geom: "Geom") -> None:
         self.onetime_geoms.append(geom)
 
-    def render(self, return_rgb_array: bool = False) -> UInt8Image | bool:
+    def render(self, return_rgb_array: bool = False) -> RenderImage | bool:
         glClearColor(1, 1, 1, 1)
         self.window.clear()
         self.window.switch_to()
@@ -210,7 +210,7 @@ class Viewer:
         self.add_onetime(geom)
         return geom
 
-    def get_array(self) -> UInt8Image:
+    def get_array(self) -> RenderImage:
         self.window.flip()
         image_data = (
             pyglet.image.get_buffer_manager().get_color_buffer().get_image_data()
@@ -462,7 +462,7 @@ class SimpleImageViewer:
         self.display = get_display(display)
         self.maxwidth = maxwidth
 
-    def imshow(self, arr: UInt8Image) -> None:
+    def imshow(self, arr: RenderImage) -> None:
         if self.window is None:
             height, width, _channels = arr.shape
             if width > self.maxwidth:

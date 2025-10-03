@@ -5,7 +5,6 @@ from typing import Any, Sequence
 import time
 
 import numpy as np
-import numpy.typing as npt
 import torch
 
 from neural_control.dynamics.fixed_wing_dynamics import FixedWingDynamics
@@ -14,12 +13,9 @@ from neural_control.environments.rendering import (
     Ground,
     Renderer,
 )
+from neural_control.environments.helper_simple_env import Action, FloatArray
 
-FloatArray = npt.NDArray[np.floating[Any]]
-ActionArray = npt.NDArray[np.floating[Any]]
-
-
-class SimpleWingEnv():
+class SimpleWingEnv:
     """
     Fixed wing drone environment
     """
@@ -54,7 +50,7 @@ class SimpleWingEnv():
 
     def step(
         self,
-        action: ActionArray | torch.Tensor | Sequence[float],
+        action: Action | torch.Tensor | Sequence[float],
         thresh_stable: float = .7,
     ) -> tuple[FloatArray, bool]:
         """
