@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import Optional
+
 import torch
 import torch.nn as nn
 
@@ -10,12 +14,12 @@ class LearntDynamicsMPC(torch.nn.Module):
 
     def __init__(
         self,
-        state_size,
-        action_size,
-        out_state_size=None,
-        transform_action=False,
-        std=0.0001
-    ):
+        state_size: int,
+        action_size: int,
+        out_state_size: int | None = None,
+        transform_action: bool = False,
+        std: float = 0.0001,
+    ) -> None:
         super(LearntDynamicsMPC, self).__init__()
         self.transform_action = transform_action
         if self.transform_action:
@@ -37,14 +41,18 @@ class LearntDynamicsMPC(torch.nn.Module):
         self.linear_state_3 = nn.Linear(64, out_state_size, bias=False)
         torch.nn.init.normal_(self.linear_state_3.weight, mean=0.0, std=std)
 
-    def state_transformer(self, state, action):
+    def state_transformer(
+        self, state: torch.Tensor, action: torch.Tensor
+    ) -> torch.Tensor:
         state_action = torch.cat((state, action), dim=1)
         layer_1 = torch.tanh(self.linear_state_1(state_action))
         layer_2 = torch.tanh(self.linear_state_2(layer_1))
         new_state = self.linear_state_3(layer_2)
         return new_state
 
-    def forward(self, state, action, dt):
+    def forward(
+        self, state: torch.Tensor, action: torch.Tensor, dt: float
+    ) -> torch.Tensor:
         if self.transform_action:
             action = torch.matmul(self.linear_at, torch.unsqueeze(action,
                                                                   2))[:, :, 0]
@@ -59,12 +67,12 @@ class LearntDynamics(torch.nn.Module):
 
     def __init__(
         self,
-        state_size,
-        action_size,
-        out_state_size=None,
-        transform_action=False,
-        std=0.0001
-    ):
+        state_size: int,
+        action_size: int,
+        out_state_size: int | None = None,
+        transform_action: bool = False,
+        std: float = 0.0001,
+    ) -> None:
         super(LearntDynamics, self).__init__()
         self.transform_action = transform_action
         if self.transform_action:
@@ -81,13 +89,17 @@ class LearntDynamics(torch.nn.Module):
         self.linear_state_2 = nn.Linear(64, out_state_size, bias=False)
         torch.nn.init.normal_(self.linear_state_2.weight, mean=0.0, std=std)
 
-    def state_transformer(self, state, action):
+    def state_transformer(
+        self, state: torch.Tensor, action: torch.Tensor
+    ) -> torch.Tensor:
         state_action = torch.cat((state, action), dim=1)
         layer_1 = torch.relu(self.linear_state_1(state_action))
         new_state = self.linear_state_2(layer_1)
         return new_state
 
-    def forward(self, state, action, dt):
+    def forward(
+        self, state: torch.Tensor, action: torch.Tensor, dt: float
+    ) -> torch.Tensor:
         if self.transform_action:
             action = torch.matmul(self.linear_at, torch.unsqueeze(action,
                                                                   2))[:, :, 0]

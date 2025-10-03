@@ -1,11 +1,15 @@
-import torch
+from __future__ import annotations
+
 import json
 import os
 from pathlib import Path
-import numpy as np
+from typing import Sequence
+
 import casadi as ca
-import torch.nn as nn
+import numpy as np
 import torch
+import torch.nn as nn
+
 
 from neural_control.dynamics.learnt_dynamics import (
     LearntDynamics, LearntDynamicsMPC
@@ -20,7 +24,12 @@ gravity = 9.81
 
 class CartpoleDynamics:
 
-    def __init__(self, modified_params={}, test_time=0, batch_size=1):
+    def __init__(
+        self,
+        modified_params: dict[str, float] | None = None,
+        test_time: float = 0.0,
+        batch_size: int = 1,
+    ) -> None:
         self.batch_size = batch_size
         with open(
             os.path.join(
@@ -30,7 +39,8 @@ class CartpoleDynamics:
             self.cfg = json.load(infile)
 
         self.test_time = test_time
-        self.cfg.update(modified_params)
+        if modified_params:
+            self.cfg.update(modified_params)
         self.cfg["friction"] = .5
         self.cfg["total_mass"] = self.cfg["masspole"] + self.cfg["masscart"]
         self.cfg["polemass_length"] = self.cfg["masspole"] * self.cfg["length"]
@@ -42,15 +52,25 @@ class CartpoleDynamics:
             )
         self.enforce_contact = -1
 
-    def reset_buffer(self):
+    def reset_buffer(self) -> None:
         self.action_buffer = np.zeros(
             (self.batch_size, int(self.cfg["delay"]), 1)
         )
 
-    def __call__(self, state, action, dt):
+    def __call__(
+        self,
+        state: torch.Tensor,
+        action: torch.Tensor,
+        dt: float,
+    ) -> torch.Tensor:
         return self.simulate_cartpole(state, action, dt)
 
-    def simulate_cartpole(self, state, action, delta_t):
+    def simulate_cartpole(
+        self,
+        state: torch.Tensor,
+        action: torch.Tensor,
+        delta_t: float,
+    ) -> torch.Tensor:
         """
         Compute new state from state and action
         """
@@ -83,7 +103,13 @@ class CartpoleDynamics:
         return next_state
         # next_state.expand(torch.Size(sample_shape) + state.shape)
 
-    def _calculate_xdot_update(self, state, action, sin_theta, cos_theta):
+    def _calculate_xdot_update(
+        self,
+        state: torch.Tensor,
+        action: torch.Tensor,
+        sin_theta: torch.Tensor,
+        cos_theta: torch.Tensor,
+    ) -> torch.Tensor:
         # pylint: disable=no-member
         x_dot = state[..., 1]
         theta_dot = state[..., 3]
@@ -96,7 +122,13 @@ class CartpoleDynamics:
             3 * self.cfg["masspole"] * cos_theta**2
         )
 
-    def _calculate_thetadot_update(self, state, action, sin_theta, cos_theta):
+    def _calculate_thetadot_update(
+        self,
+        state: torch.Tensor,
+        action: torch.Tensor,
+        sin_theta: torch.Tensor,
+        cos_theta: torch.Tensor,
+    ) -> torch.Tensor:
         # pylint: disable=no-member
         x_dot = state[..., 1]
         theta_dot = state[..., 3]
@@ -111,7 +143,12 @@ class CartpoleDynamics:
         )
 
     @staticmethod
-    def _calculate_theta_update(state, delta_t, sin_theta, cos_theta):
+    def _calculate_theta_update(
+        state: torch.Tensor,
+        delta_t: float,
+        sin_theta: torch.Tensor,
+        cos_theta: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         sin_theta_dot = torch.sin(state[..., 3] * delta_t)
         cos_theta_dot = torch.cos(state[..., 3] * delta_t)
         new_sintheta = sin_theta * cos_theta_dot + cos_theta * sin_theta_dot
@@ -121,7 +158,11 @@ class CartpoleDynamics:
 
 class LearntCartpoleDynamics(LearntDynamics, CartpoleDynamics):
 
-    def __init__(self, modified_params={}, not_trainable=[]):
+    def __init__(
+        self,
+        modified_params: dict[str, float] | None = None,
+        not_trainable: Sequence[str] | str | None = None,
+    ) -> None:
         CartpoleDynamics.__init__(self, modified_params=modified_params)
         super(LearntCartpoleDynamics, self).__init__(4, 1)
 
@@ -129,28 +170,40 @@ class LearntCartpoleDynamics(LearntDynamics, CartpoleDynamics):
         for key, val in self.cfg.items():
             requires_grad = True
             # # code to avoid training the parameters
-            if not_trainable == "all" or key in not_trainable:
+            if not_trainable == "all" or (
+                isinstance(not_trainable, Sequence) and key in not_trainable
+            ):
                 requires_grad = False
             dict_pytorch[key] = torch.nn.Parameter(
                 torch.tensor([val]), requires_grad=requires_grad
             )
         self.cfg = torch.nn.ParameterDict(dict_pytorch)
 
-    def simulate(self, state, action, dt):
+    def simulate(
+        self, state: torch.Tensor, action: torch.Tensor, dt: float
+    ) -> torch.Tensor:
         return self.simulate_cartpole(state, action, dt)
 
 
 class SequenceCartpoleDynamics(LearntDynamicsMPC, CartpoleDynamics):
 
-    def __init__(self, buffer_length=3):
+    def __init__(self, buffer_length: int = 3) -> None:
         CartpoleDynamics.__init__(self)
         super(SequenceCartpoleDynamics,
               self).__init__(5 * buffer_length, 1, out_state_size=4)
 
-    def simulate(self, state, action, dt):
+    def simulate(
+        self, state: torch.Tensor, action: torch.Tensor, dt: float
+    ) -> torch.Tensor:
         return self.simulate_cartpole(state, action, dt)
 
-    def forward(self, state, state_action_buffer, action, dt):
+    def forward(
+        self,
+        state: torch.Tensor,
+        state_action_buffer: torch.Tensor,
+        action: torch.Tensor,
+        dt: float,
+    ) -> torch.Tensor:
         # run through normal simulator f hat
         new_state = self.simulate(state, action, dt)
         # run through residual network delta
@@ -161,8 +214,13 @@ class SequenceCartpoleDynamics(LearntDynamicsMPC, CartpoleDynamics):
 class ImageCartpoleDynamics(torch.nn.Module, CartpoleDynamics):
 
     def __init__(
-        self, img_width, img_height, nr_img=5, state_size=4, action_dim=1
-    ):
+        self,
+        img_width: int,
+        img_height: int,
+        nr_img: int = 5,
+        state_size: int = 4,
+        action_dim: int = 1,
+    ) -> None:
         CartpoleDynamics.__init__(self)
         super(ImageCartpoleDynamics, self).__init__()
 
@@ -183,7 +241,7 @@ class ImageCartpoleDynamics(torch.nn.Module, CartpoleDynamics):
         self.linear_state_1 = nn.Linear(self.flat_img_size + 32, 64)
         self.linear_state_2 = nn.Linear(64, state_size, bias=False)
 
-    def conv_head(self, image):
+    def conv_head(self, image: torch.Tensor) -> torch.Tensor:
         cat_all = [image]
         for i in range(image.size()[1] - 1):
             cat_all.append(
@@ -194,11 +252,13 @@ class ImageCartpoleDynamics(torch.nn.Module, CartpoleDynamics):
         conv2 = torch.relu(self.conv2(conv1))
         return conv2
 
-    def action_encoding(self, action):
+    def action_encoding(self, action: torch.Tensor) -> torch.Tensor:
         ff_act = torch.relu(self.linear_act(action))
         return ff_act
 
-    def state_transformer(self, image_conv, act_enc):
+    def state_transformer(
+        self, image_conv: torch.Tensor, act_enc: torch.Tensor
+    ) -> torch.Tensor:
         flattened = image_conv.reshape((-1, self.flat_img_size))
         state_action = torch.cat((flattened, act_enc), dim=1)
 
@@ -206,7 +266,12 @@ class ImageCartpoleDynamics(torch.nn.Module, CartpoleDynamics):
         ff_2 = self.linear_state_2(ff_1)
         return ff_2
 
-    def image_prediction(self, image_conv, act_enc, prior_img):
+    def image_prediction(
+        self,
+        image_conv: torch.Tensor,
+        act_enc: torch.Tensor,
+        prior_img: torch.Tensor,
+    ) -> torch.Tensor:
         act_img = torch.relu(self.act_to_img(act_enc))
         act_img = act_img.reshape((-1, 1, self.img_width, self.img_height))
         # concat channels
@@ -217,7 +282,13 @@ class ImageCartpoleDynamics(torch.nn.Module, CartpoleDynamics):
         # return the single channel that we have (instead of squeeze)
         return conv4[:, 0]
 
-    def forward(self, state, image, action, dt):
+    def forward(
+        self,
+        state: torch.Tensor,
+        image: torch.Tensor,
+        action: torch.Tensor,
+        dt: float,
+    ) -> torch.Tensor:
         # run through normal simulator f hat
         new_state = self.simulate_cartpole(state, action, dt)
         # encode image and action (common head)
@@ -233,10 +304,12 @@ class ImageCartpoleDynamics(torch.nn.Module, CartpoleDynamics):
 
 class CartpoleDynamicsMPC(CartpoleDynamics):
 
-    def __init__(self, modified_params={}):
+    def __init__(
+        self, modified_params: dict[str, float] | None = None
+    ) -> None:
         CartpoleDynamics.__init__(self, modified_params=modified_params)
 
-    def simulate_cartpole(self, dt):
+    def simulate_cartpole(self, dt: float) -> ca.Function:
         (x, x_dot, theta, theta_dot) = (
             ca.SX.sym("x"), ca.SX.sym("x_dot"), ca.SX.sym("theta"),
             ca.SX.sym("theta_dot")

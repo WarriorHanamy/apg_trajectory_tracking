@@ -1,12 +1,20 @@
-import torch
-import numpy as np
-from neural_control.dynamics.quad_dynamics_base import Dynamics
+from __future__ import annotations
+
 import casadi as ca
+import numpy as np
+import torch
+
+from neural_control.dynamics.quad_dynamics_base import Dynamics
 
 
 class SimpleDynamics(Dynamics):
 
-    def linear_dynamics(self, squared_rotor_speed, attitude, velocity):
+    def linear_dynamics(
+        self,
+        squared_rotor_speed: torch.Tensor,
+        attitude: torch.Tensor,
+        velocity: torch.Tensor,
+    ) -> torch.Tensor:
         """
         Calculates the linear acceleration of a quadcopter with parameters
         `copter_params` that is currently in the dynamics state composed of:
@@ -40,7 +48,9 @@ class SimpleDynamics(Dynamics):
         # print("output linear", thrust_minus_drag.size())
         return thrust_minus_drag
 
-    def action_to_body_torques(self, av, body_rates):
+    def action_to_body_torques(
+        self, av: torch.Tensor, body_rates: torch.Tensor
+    ) -> torch.Tensor:
         """
         omega is current angular velocity
         thrust, body_rates: current command
@@ -62,10 +72,20 @@ class SimpleDynamics(Dynamics):
         # print("body_torque_des", body_torque_des.size())
         return body_torque_des
 
-    def __call__(self, state, action, dt):
+    def __call__(
+        self,
+        state: torch.Tensor,
+        action: torch.Tensor,
+        dt: float,
+    ) -> torch.Tensor:
         return self.simulate_quadrotor(action, state, dt=dt)
 
-    def simulate_quadrotor(self, action, state, dt=0.02):
+    def simulate_quadrotor(
+        self,
+        action: torch.Tensor,
+        state: torch.Tensor,
+        dt: float = 0.02,
+    ) -> torch.Tensor:
         """
         Simulate the dynamics of the quadrotor for the timestep given
         in `dt`. First the rotor speeds are updated according to the desired
@@ -106,7 +126,7 @@ class SimpleDynamics(Dynamics):
 
 class SimpleDynamicsMPC(Dynamics):
 
-    def drone_dynamics_simple(self, dt):
+    def drone_dynamics_simple(self, dt: float) -> ca.Function:
         """
         Dynamics function in casadi for MPC optimization
         """

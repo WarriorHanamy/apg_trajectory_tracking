@@ -1,25 +1,33 @@
+from __future__ import annotations
+
+from typing import Any, Sequence
+
 import numpy as np
-from scipy.stats import special_ortho_group
-from .plan_trajectory import get_reference
+from numpy.typing import NDArray
 from scipy.interpolate import CubicSpline
+from scipy.stats import special_ortho_group
+
+from .plan_trajectory import get_reference
+
+FloatArray = NDArray[np.float_]
 
 
 class Polynomial:
 
     def __init__(
         self,
-        drone_state,
-        render=False,
-        renderer=None,
-        points_to_traverse=None,
-        max_drone_dist=0.25,
-        horizon=10,
-        hover_steps=50,
-        x_range=20,
-        degree=5,
-        dt=0.05,
-        **kwargs
-    ):
+        drone_state: FloatArray,
+        render: bool = False,
+        renderer: Any | None = None,
+        points_to_traverse: FloatArray | None = None,
+        max_drone_dist: float = 0.25,
+        horizon: int = 10,
+        hover_steps: int = 50,
+        x_range: float = 20,
+        degree: int = 5,
+        dt: float = 0.05,
+        **kwargs: Any,
+    ) -> None:
         """
         Create random trajectory
         """
@@ -54,7 +62,7 @@ class Polynomial:
         if render:
             renderer.add_object(PolyObject(self.reference))
 
-    def cubic_fit(self, points_to_traverse):
+    def cubic_fit(self, points_to_traverse: FloatArray) -> FloatArray:
         dists = [0] + [
             np.linalg.norm(points_to_traverse[i] - points_to_traverse[i + 1])
             for i in range(len(points_to_traverse) - 1)
@@ -81,7 +89,7 @@ class Polynomial:
         points_sample = np.array([func(x_s) for x_s in x_sample])
         return points_sample
 
-    def random_polynomial(self, x_range, degree):
+    def random_polynomial(self, x_range: float, degree: int) -> FloatArray:
         x_start = 1
         x_final = x_start + x_range
 
@@ -125,7 +133,9 @@ class Polynomial:
         points_3d = points_2d_ext @ rot
         return points_3d
 
-    def get_ref_traj(self, drone_state, drone_acc):
+    def get_ref_traj(
+        self, drone_state: FloatArray, drone_acc: FloatArray
+    ) -> FloatArray:
         """
         Return directly the points on the reference, and not the relative min
         snap
@@ -160,7 +170,9 @@ class Polynomial:
         # print(ref_out)
         return ref_out
 
-    def get_min_snap_ref(self, drone_state, drone_acc):
+    def get_min_snap_ref(
+        self, drone_state: FloatArray, drone_acc: FloatArray
+    ) -> FloatArray:
         """
         Given the current position, compute a min snap trajectory to the next
         target
@@ -198,16 +210,16 @@ class Polynomial:
         # reference = ref_zero
         return reference
 
-    def project_on_ref(self, drone_state):
+    def project_on_ref(self, drone_state: FloatArray) -> FloatArray:
         """
         Project drone state onto the trajectory
         """
         return self.reference[self.current_ind]
 
 
-class PolyObject():
+class PolyObject:
 
-    def __init__(self, reference_arr):
+    def __init__(self, reference_arr: FloatArray) -> None:
         self.points = np.array(
             [
                 reference_arr[i] for i in range(len(reference_arr))
@@ -216,7 +228,7 @@ class PolyObject():
         )
         self.points[:, 2] += 1
 
-    def draw(self, renderer):
+    def draw(self, renderer: Any) -> None:
         for p in range(len(self.points) - 1):
             renderer.draw_line_3d(
                 self.points[p], self.points[p + 1], color=(1, 0, 0)

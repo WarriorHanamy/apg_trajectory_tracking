@@ -1,10 +1,13 @@
+from __future__ import annotations
+
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 
 class Net(nn.Module):
 
-    def __init__(self, in_size, out_size):
+    def __init__(self, in_size: int, out_size: int) -> None:
         super(Net, self).__init__()
         # conf: in channels, out channels, kernel size
         self.fc_in = nn.Linear(in_size, 100)
@@ -19,7 +22,7 @@ class Net(nn.Module):
         self.fc_last = nn.Linear(100, 40)
         self.fc_out = nn.Linear(40, out_size)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = F.relu(self.fc_in(x))
         # 1st resnet block
         shortcut = x

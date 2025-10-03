@@ -1,21 +1,29 @@
+from __future__ import annotations
+
+from typing import Any
+
 import numpy as np
+from numpy.typing import NDArray
+
 from .generate_trajectory import load_prepare_trajectory
+
+FloatArray = NDArray[np.float_]
 
 
 class Random:
 
     def __init__(
         self,
-        drone_state,
-        render=False,
-        renderer=None,
-        speed_factor=.6,
-        horizon=10,
-        duration=None,
-        dt=0.05,
-        test_time=0,
-        **kwargs
-    ):
+        drone_state: FloatArray,
+        render: bool = False,
+        renderer: Any | None = None,
+        speed_factor: float = 0.6,
+        horizon: int = 10,
+        duration: float | None = None,
+        dt: float = 0.05,
+        test_time: float = 0,
+        **kwargs: Any,
+    ) -> None:
         """
         Create random trajectory
         """
@@ -58,7 +66,9 @@ class Random:
         if render:
             renderer.add_object(PolyObject(self.reference))
 
-    def get_ref_traj(self, drone_state, drone_acc):
+    def get_ref_traj(
+        self, drone_state: FloatArray, drone_acc: FloatArray
+    ) -> FloatArray:
         """
         Given the current position, compute a min snap trajectory to the next
         target
@@ -79,25 +89,25 @@ class Random:
         self.current_ind += 1
         return out_ref
 
-    def project_on_ref(self, drone_state):
+    def project_on_ref(self, drone_state: FloatArray) -> FloatArray:
         """
         Project drone state onto the trajectory
         """
         return self.reference[self.current_ind, :3]
 
-    def get_current_full_state(self):
+    def get_current_full_state(self) -> FloatArray:
         pos_vel = self.reference[self.current_ind]
         # pos_vel[:3], pos_vel[6:], pos_vel[3:6]
         return np.hstack((pos_vel, np.zeros(3)))
 
 
-class PolyObject():
+class PolyObject:
 
-    def __init__(self, reference_arr):
+    def __init__(self, reference_arr: FloatArray) -> None:
         self.points = reference_arr.copy()
         self.points[:, 2] += 1
 
-    def draw(self, renderer):
+    def draw(self, renderer: Any) -> None:
         for p in range(len(self.points) - 1):
             renderer.draw_line_3d(
                 self.points[p], self.points[p + 1], color=(1, 0, 0)

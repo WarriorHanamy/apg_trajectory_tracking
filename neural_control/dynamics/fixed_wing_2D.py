@@ -1,6 +1,9 @@
+from __future__ import annotations
+
+import casadi as ca
 import numpy as np
 import torch
-import casadi as ca
+from typing import Final
 
 m = 1.01
 I_xx = 0.04766
@@ -25,12 +28,16 @@ Cm_q = -0.1324
 Cm_del_e = -0.4236
 
 # lower and upper bounds:
-alpha_bound = float(5 / 180 * np.pi)
+alpha_bound: Final[float] = float(5 / 180 * np.pi)
 
 torch_pi = np.pi
 
 
-def fixed_wing_dynamics_2D(state, action, dt):
+def fixed_wing_dynamics_2D(
+    state: torch.Tensor,
+    action: torch.Tensor,
+    dt: float,
+) -> torch.Tensor:
     # extract variables
     # state
     x = state[:, 0]  # x position
@@ -92,7 +99,7 @@ def fixed_wing_dynamics_2D(state, action, dt):
     return next_state
 
 
-def fixed_wing_dynamics_mpc(self, dt):
+def fixed_wing_dynamics_mpc(dt: float) -> ca.Function:
     """
     Longitudinal dynamics for fixed wing
     """

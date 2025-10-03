@@ -1,9 +1,15 @@
+from __future__ import annotations
+
+from typing import Sequence, Union
+
+import casadi as cs
 import numpy as np
 import pyquaternion
-import casadi as cs
+
+ArrayLike = Union[np.ndarray, cs.MX]
 
 
-def project_to_line(a, b, p):
+def project_to_line(a: np.ndarray, b: np.ndarray, p: np.ndarray) -> np.ndarray:
     """
     Project a n-dim position p onto a line spanned by a and b
     """
@@ -18,7 +24,7 @@ def project_to_line(a, b, p):
     return result
 
 
-def euler_to_quaternion(roll, pitch, yaw):
+def euler_to_quaternion(roll: float, pitch: float, yaw: float) -> np.ndarray:
     qx = np.sin(roll / 2) * np.cos(pitch / 2) * np.cos(yaw / 2) - np.cos(
         roll / 2
     ) * np.sin(pitch / 2) * np.sin(yaw / 2)
@@ -35,13 +41,13 @@ def euler_to_quaternion(roll, pitch, yaw):
     return np.array([qw, qx, qy, qz])
 
 
-def quaternion_to_euler(q):
+def quaternion_to_euler(q: Sequence[float]) -> list[float]:
     q = pyquaternion.Quaternion(w=q[0], x=q[1], y=q[2], z=q[3])
     yaw, pitch, roll = q.yaw_pitch_roll
     return [roll, pitch, yaw]
 
 
-def unit_quat(q):
+def unit_quat(q: ArrayLike) -> ArrayLike:
     """
     Normalizes a quaternion to be unit modulus.
     :param q: 4-dimensional numpy array or CasADi object
@@ -57,7 +63,7 @@ def unit_quat(q):
     return 1 / q_norm * q
 
 
-def v_dot_q(v, q):
+def v_dot_q(v: ArrayLike, q: ArrayLike) -> ArrayLike:
     rot_mat = q_to_rot_mat(q)
     if isinstance(q, np.ndarray):
         return rot_mat.dot(v)
@@ -65,7 +71,7 @@ def v_dot_q(v, q):
     return cs.mtimes(rot_mat, v)
 
 
-def q_to_rot_mat(q):
+def q_to_rot_mat(q: ArrayLike) -> ArrayLike:
     qw, qx, qy, qz = q[0], q[1], q[2], q[3]
 
     if isinstance(q, np.ndarray):
@@ -105,7 +111,7 @@ def q_to_rot_mat(q):
     return rot_mat
 
 
-def q_dot_new(q, w):
+def q_dot_new(q: np.ndarray, w: np.ndarray) -> np.ndarray:
     t0 = -0.5 * (w[0] * q[1] + w[1] * q[2] + w[2] * q[3])
     t1 = 0.5 * (w[0] * q[0] + w[1] * q[3] - w[2] * q[2])
     t2 = 0.5 * (w[1] * q[0] + w[2] * q[1] - w[0] * q[3])
@@ -113,7 +119,7 @@ def q_dot_new(q, w):
     return np.array([t0, t1, t2, t3])
 
 
-def q_dot_q(q, r):
+def q_dot_q(q: ArrayLike, r: ArrayLike) -> ArrayLike:
     """
     Applies the rotation of quaternion r to quaternion q. In order words,
      rotates quaternion q by r. Quaternion format:
@@ -138,7 +144,7 @@ def q_dot_q(q, r):
         return cs.vertcat(t0, t1, t2, t3)
 
 
-def rotation_matrix_to_quat(rot):
+def rotation_matrix_to_quat(rot: np.ndarray) -> np.ndarray:
     """
     Calculate a quaternion from a 3x3 rotation matrix.
     :param rot: 3x3 numpy array, representing a valid rotation matrix
@@ -150,7 +156,7 @@ def rotation_matrix_to_quat(rot):
     return np.array([q.w, q.x, q.y, q.z])
 
 
-def undo_quaternion_flip(q_past, q_current):
+def undo_quaternion_flip(q_past: np.ndarray, q_current: np.ndarray) -> np.ndarray:
     """
     Detects if q_current generated a quaternion jump and corrects it. Requires
      knowledge of the previous quaternion
@@ -168,7 +174,7 @@ def undo_quaternion_flip(q_past, q_current):
     return q_current
 
 
-def skew_symmetric(v):
+def skew_symmetric(v: ArrayLike) -> ArrayLike:
     """
     Computes the skew-symmetric matrix of a 3D vector (PAMPC version)
     :param v: 3D numpy vector or CasADi MX
@@ -190,7 +196,7 @@ def skew_symmetric(v):
     )
 
 
-def decompose_quaternion(q):
+def decompose_quaternion(q: ArrayLike) -> tuple[ArrayLike, ArrayLike]:
     """
     Decomposes a quaternion into a z rotation and an xy rotation
     :param q: 4-dimensional numpy array of CasADi MX (format qw, qx, qy, qz)
@@ -210,7 +216,7 @@ def decompose_quaternion(q):
     return qxy, qz
 
 
-def quaternion_inverse(q):
+def quaternion_inverse(q: ArrayLike) -> ArrayLike:
     w, x, y, z = q[0], q[1], q[2], q[3]
 
     if isinstance(q, np.ndarray):

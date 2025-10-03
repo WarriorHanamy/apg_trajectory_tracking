@@ -1,5 +1,7 @@
-import torch.nn as nn
+from __future__ import annotations
+
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 
 
@@ -10,8 +12,13 @@ class Net(nn.Module):
     """
 
     def __init__(
-        self, state_dim, horizon, ref_dim, nr_actions_predict, conv=True
-    ):
+        self,
+        state_dim: int,
+        horizon: int,
+        ref_dim: int,
+        nr_actions_predict: int,
+        conv: bool = True,
+    ) -> None:
         """
         in_size: number of input neurons (features)
         out_size: number of output neurons
@@ -29,7 +36,7 @@ class Net(nn.Module):
         self.fc3 = nn.Linear(64, 64)
         self.fc_out = nn.Linear(64, nr_actions_predict)
 
-    def forward(self, state, ref):
+    def forward(self, state: torch.Tensor, ref: torch.Tensor) -> torch.Tensor:
         # process state and reference differently
         state = torch.tanh(self.states_in(state))
         if self.conv:

@@ -1,30 +1,33 @@
-import numpy as np
-import torch
+from __future__ import annotations
+
 import contextlib
 import time
+from typing import Any, Iterator, Tuple
+
+import numpy as np
+import torch
 import torch.optim as optim
 
 
 @contextlib.contextmanager
-def dummy_context():
+def dummy_context() -> Iterator[None]:
     yield None
 
 
 class NetworkWrapper:
-
     def __init__(
         self,
-        model,
-        dataset,
-        optimizer=None,
-        horizon=10,
-        max_drone_dist=0.1,
-        render=0,
-        dt=0.02,
-        take_every_x=1000,
-        **kwargs
-    ):
-        self.dataset = dataset
+        model: torch.nn.Module,
+        dataset: Any,
+        optimizer: optim.Optimizer | None = None,
+        horizon: int = 10,
+        max_drone_dist: float = 0.1,
+        render: int = 0,
+        dt: float = 0.02,
+        take_every_x: int = 1000,
+        **kwargs: Any,
+    ) -> None:
+        self.dataset: Any = dataset
         self.net = model
         self.horizon = horizon
         self.max_drone_dist = max_drone_dist
@@ -39,7 +42,11 @@ class NetworkWrapper:
         # four control signals
         self.action_dim = 4
 
-    def predict_actions(self, current_np_state, ref_states):
+    def predict_actions(
+        self,
+        current_np_state: np.ndarray,
+        ref_states: np.ndarray,
+    ) -> np.ndarray:
         """
         Predict an action for the current state. This function is used by all
         evaluation functions
@@ -70,7 +77,14 @@ class NetworkWrapper:
 
 class FixedWingNetWrapper:
 
-    def __init__(self, model, dataset, horizon=1, take_every_x=1000, **kwargs):
+    def __init__(
+        self,
+        model: torch.nn.Module,
+        dataset: Any,
+        horizon: int = 1,
+        take_every_x: int = 1000,
+        **kwargs: Any,
+    ) -> None:
         self.net = model
         self.dataset = dataset
         self.horizon = horizon
@@ -78,7 +92,7 @@ class FixedWingNetWrapper:
         self.action_counter = 0
         self.take_every_x = take_every_x
 
-    def predict_actions(self, state, ref_state):
+    def predict_actions(self, state: np.ndarray, ref_state: np.ndarray) -> np.ndarray:
         # determine whether we also add the sample to our train data
         add_to_dataset = (self.action_counter + 1) % self.take_every_x == 0
 
@@ -100,14 +114,25 @@ class FixedWingNetWrapper:
 
 class CartpoleWrapper:
 
-    def __init__(self, model, horizon=10, action_dim=1, **kwargs):
+    def __init__(
+        self,
+        model: torch.nn.Module,
+        horizon: int = 10,
+        action_dim: int = 1,
+        **kwargs: Any,
+    ) -> None:
         self.horizon = horizon
         self.action_dim = action_dim
         self.net = model
 
     def raw_states_to_torch(
-        self, states, normalize=False, std=None, mean=None, return_std=False
-    ):
+        self,
+        states: np.ndarray,
+        normalize: bool = False,
+        std: np.ndarray | float | None = None,
+        mean: np.ndarray | None = None,
+        return_std: bool = False,
+    ) -> torch.Tensor | Tuple[torch.Tensor, np.ndarray | None, np.ndarray | float | None]:
         """
         Helper function to convert numpy state array to normalized tensors
         Argument states:
@@ -138,7 +163,7 @@ class CartpoleWrapper:
             return states_to_torch, mean, std
         return states_to_torch
 
-    def predict_actions(self, state, ref_state):
+    def predict_actions(self, state: np.ndarray, ref_state: np.ndarray) -> torch.Tensor:
         torch_state = self.raw_states_to_torch(state)
         action_seq = self.net(torch_state)
         if action_seq.size()[-1] > self.action_dim:
@@ -152,14 +177,14 @@ class CartpoleImageWrapper:
 
     def __init__(
         self,
-        net,
-        dataset,
-        horizon=3,
-        action_dim=1,
-        self_play=1,
-        take_every_x=5,
-        **kwargs
-    ):
+        net: torch.nn.Module,
+        dataset: Any,
+        horizon: int = 3,
+        action_dim: int = 1,
+        self_play: int | str = 1,
+        take_every_x: int = 5,
+        **kwargs: Any,
+    ) -> None:
         self.dataset = dataset
         self.horizon = horizon
         self.action_dim = action_dim
@@ -168,13 +193,17 @@ class CartpoleImageWrapper:
         self.action_counter = 0
         self.take_every_x = take_every_x
 
-    def to_torch(self, inp):
+    def to_torch(self, inp: np.ndarray) -> torch.Tensor:
         """
         To torch tensor
         """
         return torch.from_numpy(np.expand_dims(inp, 0)).float()
 
-    def predict_actions(self, img_input, state):
+    def predict_actions(
+        self,
+        img_input: torch.Tensor,
+        state: np.ndarray,
+    ) -> torch.Tensor:
         # img_input = self.to_torch(image)
         action_seq = self.net(img_input)
         action_seq = torch.reshape(
@@ -192,8 +221,12 @@ class CartpoleImageWrapper:
 
 class SequenceCartpoleWrapper(CartpoleImageWrapper):
 
-    def predict_actions(self, state_buffer, action_buffer, network_input):
-
+    def predict_actions(
+        self,
+        state_buffer: torch.Tensor,
+        action_buffer: torch.Tensor,
+        network_input: torch.Tensor,
+    ) -> torch.Tensor:
         action_seq = self.net(network_input)
         action_seq = torch.reshape(
             action_seq, (-1, self.horizon, self.action_dim)

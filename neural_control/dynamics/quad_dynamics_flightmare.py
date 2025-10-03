@@ -1,12 +1,19 @@
-import torch
-import numpy as np
-from neural_control.dynamics.quad_dynamics_base import Dynamics
+from __future__ import annotations
+
 import casadi as ca
+import numpy as np
+import torch
+
+from neural_control.dynamics.quad_dynamics_base import Dynamics
 
 
 class FlightmareDynamics(Dynamics):
 
-    def __init__(self, modified_params={}, simulate_rotors=False):
+    def __init__(
+        self,
+        modified_params: dict[str, float] | None = None,
+        simulate_rotors: bool = False,
+    ) -> None:
         super().__init__(modified_params=modified_params)
 
         self.simulate_rotors = simulate_rotors
@@ -37,14 +44,14 @@ class FlightmareDynamics(Dynamics):
             ), 1
         )
 
-    def thrust_to_omega(self, thrusts):
+    def thrust_to_omega(self, thrusts: torch.Tensor) -> torch.Tensor:
         scale = 1.0 / (2.0 * self.thrust_map[0])
         offset = -self.thrust_map[1] * scale
         root = self.thrust_map[
             1]**2 - 4 * self.thrust_map[0] * (self.thrust_map[2] - thrusts)
         return offset + scale * torch.sqrt(root)
 
-    def motorOmegaToThrust(self, motor_omega_):
+    def motorOmegaToThrust(self, motor_omega_: torch.Tensor) -> torch.Tensor:
         motor_omega_ = torch.unsqueeze(motor_omega_, dim=2)
         omega_poly = torch.cat(
             (motor_omega_**2, motor_omega_, torch.ones(motor_omega_.size())),
@@ -52,7 +59,9 @@ class FlightmareDynamics(Dynamics):
         )
         return torch.matmul(omega_poly, self.thrust_map)
 
-    def run_motors(self, dt, motor_thrusts_des):
+    def run_motors(
+        self, dt: float, motor_thrusts_des: torch.Tensor
+    ) -> torch.Tensor:
         # print("motor_thrusts_des\n", motor_thrusts_des.size())
         motor_omega = self.thrust_to_omega(motor_thrusts_des)
 
@@ -71,7 +80,12 @@ class FlightmareDynamics(Dynamics):
         # TODO: clamp?
         return motor_thrusts[:, :, 0]
 
-    def linear_dynamics(self, force, attitude, velocity):
+    def linear_dynamics(
+        self,
+        force: torch.Tensor,
+        attitude: torch.Tensor,
+        velocity: torch.Tensor,
+    ) -> torch.Tensor:
         """
         linear dynamics
         no drag so far
@@ -92,7 +106,13 @@ class FlightmareDynamics(Dynamics):
         )
         return thrust_min_grav  # - drag
 
-    def run_flight_control(self, thrust, av, body_rates, cross_prod):
+    def run_flight_control(
+        self,
+        thrust: torch.Tensor,
+        av: torch.Tensor,
+        body_rates: torch.Tensor,
+        cross_prod: torch.Tensor,
+    ) -> torch.Tensor:
         """
         thrust: command first signal (around 9.81)
         omega = av: current angular velocity
@@ -116,16 +136,26 @@ class FlightmareDynamics(Dynamics):
         )
         return thrust_and_torque[:, :, 0]
 
-    def _pretty_print(self, varname, torch_var):
+    def _pretty_print(self, varname: str, torch_var: torch.Tensor) -> None:
         np.set_printoptions(suppress=1, precision=7)
         if len(torch_var) > 1:
             print("ERR: batch size larger 1", torch_var.size())
         print(varname, torch_var[0].detach().numpy())
 
-    def __call__(self, state, action, dt):
+    def __call__(
+        self,
+        state: torch.Tensor,
+        action: torch.Tensor,
+        dt: float,
+    ) -> torch.Tensor:
         return self.simulate_quadrotor(action, state, dt)
 
-    def simulate_quadrotor(self, action, state, dt):
+    def simulate_quadrotor(
+        self,
+        action: torch.Tensor,
+        state: torch.Tensor,
+        dt: float,
+    ) -> torch.Tensor:
         """
         Pytorch implementation of the dynamics in Flightmare simulator
         """
@@ -218,7 +248,7 @@ class FlightmareDynamics(Dynamics):
 
 class FlightmareDynamicsMPC(Dynamics):
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
         # TODO: run rotors params:
@@ -229,7 +259,7 @@ class FlightmareDynamicsMPC(Dynamics):
         # motor_tau = 0.0001
         # motor_tau_inv = 1 / motor_tau
 
-    def drone_dynamics_flightmare(self, dt):
+    def drone_dynamics_flightmare(self, dt: float) -> ca.Function:
 
         # # # # # # # # # # # # # # # # # # #
         # --------- State ------------

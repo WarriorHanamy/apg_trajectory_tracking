@@ -1,13 +1,17 @@
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+from typing import Final
+
+import casadi as ca
 import numpy as np
 import torch
 import torch.nn as nn
-import json
-import os
-import casadi as ca
-from pathlib import Path
 
 # lower and upper bounds:
-alpha_bound = float(10 / 180 * np.pi)
+alpha_bound: Final[float] = float(10 / 180 * np.pi)
 
 
 class FixedWingDynamics:
@@ -15,7 +19,10 @@ class FixedWingDynamics:
     Dynamics of a fixed wing drone
     """
 
-    def __init__(self, modified_params={}):
+    def __init__(
+        self,
+        modified_params: dict[str, float] | None = None,
+    ) -> None:
         # Load json file with default parameters
         with open(
             os.path.join(
@@ -28,7 +35,8 @@ class FixedWingDynamics:
         self.pi = np.pi
 
         # update with modified parameters
-        self.cfg.update(modified_params)
+        if modified_params:
+            self.cfg.update(modified_params)
 
         self.I = torch.tensor(
             [
@@ -38,7 +46,13 @@ class FixedWingDynamics:
             ]
         )
 
-    def normalize_action(self, thrust, ome_x, ome_y, ome_z):
+    def normalize_action(
+        self,
+        thrust: torch.Tensor,
+        ome_x: torch.Tensor,
+        ome_y: torch.Tensor,
+        ome_z: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         T = thrust * 7
         del_e = self.pi * (ome_x * 40 - 20) / 180
         del_a = self.pi * (ome_y * 5 - 2.5) / 180
@@ -46,7 +60,9 @@ class FixedWingDynamics:
         return T, del_e, del_a, del_r
 
     @staticmethod
-    def body_wind_function(alpha, beta):
+    def body_wind_function(
+        alpha: torch.Tensor, beta: torch.Tensor
+    ) -> torch.Tensor:
         """
         This function calculates the rotation matrix from the wind to the body
         """
@@ -63,7 +79,9 @@ class FixedWingDynamics:
         return R_bw
 
     @staticmethod
-    def inertial_body_function(phi, theta, psi):
+    def inertial_body_function(
+        phi: torch.Tensor, theta: torch.Tensor, psi: torch.Tensor
+    ) -> torch.Tensor:
         """
         returns rotation matrix to rotate Vector from body to inertial frame
         (ZYX convention)
@@ -92,10 +110,20 @@ class FixedWingDynamics:
         R_ib = torch.stack((m1, m2, m3), dim=1)
         return torch.transpose(R_ib, 1, 2)
 
-    def __call__(self, state, action, dt):
+    def __call__(
+        self,
+        state: torch.Tensor,
+        action: torch.Tensor,
+        dt: float,
+    ) -> torch.Tensor:
         return self.simulate_fixed_wing(state, action, dt)
 
-    def simulate_fixed_wing(self, state, action, dt):
+    def simulate_fixed_wing(
+        self,
+        state: torch.Tensor,
+        action: torch.Tensor,
+        dt: float,
+    ) -> torch.Tensor:
         """
         Dynamics of a fixed wing drone
         """

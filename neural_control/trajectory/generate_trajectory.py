@@ -1,12 +1,13 @@
-import argparse
-import time
-import os
+from __future__ import annotations
+
 import json
+import os
+from typing import Any, Sequence
 
 import casadi as cs
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
+from numpy.typing import NDArray
 from scipy import interpolate
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import ExpSineSquared
@@ -17,6 +18,7 @@ from neural_control.trajectory.q_funcs import (
     quaternion_inverse,
     quaternion_to_euler,
 )
+from neural_control.dynamics.quad_dynamics_base import Dynamics
 
 # from utils.visualization import debug_plot, draw_poly
 """
@@ -24,11 +26,12 @@ Autor: Elia Kaufmann
 Script for generating random and geometric quadrotor trajectories
 """
 
-from neural_control.dynamics.quad_dynamics_base import Dynamics
+
+FloatArray = NDArray[np.float_]
 
 
 class Quad(Dynamics):
-    def __init__(self, max_thrust_per_motor):
+    def __init__(self, max_thrust_per_motor: float) -> None:
         """
         :param mass: mass of the quadrotor in [kg]
         :param max_thrust_per_motor: maximum thrust in [N] per motor
@@ -46,7 +49,12 @@ class Quad(Dynamics):
         self.z_l_tau = np.array([-self.c, self.c, -self.c, self.c])
 
 
-def check_trajectory(trajectory, inputs, tvec, plot=False):
+def check_trajectory(
+    trajectory: FloatArray,
+    inputs: FloatArray,
+    tvec: FloatArray,
+    plot: bool = False,
+) -> bool:
     """
     @param trajectory:
     @param inputs:
@@ -155,7 +163,11 @@ def check_trajectory(trajectory, inputs, tvec, plot=False):
     return True
 
 
-def smooth(x, window_len=11, window="hanning"):
+def smooth(
+    x: FloatArray,
+    window_len: int = 11,
+    window: str = "hanning",
+) -> FloatArray:
     """smooth the data using a window with requested size.
 
     This method is based on the convolution of a scaled window with the signal.
@@ -200,7 +212,7 @@ def smooth(x, window_len=11, window="hanning"):
     if window_len < 3:
         return x
 
-    if not window in ["flat", "hanning", "hamming", "bartlett", "blackman"]:
+    if window not in ["flat", "hanning", "hamming", "bartlett", "blackman"]:
         raise ValueError(
             "Window is on of 'flat', 'hanning', 'hamming', 'bartlett','blackman'"
         )
@@ -220,7 +232,13 @@ def smooth(x, window_len=11, window="hanning"):
     return y
 
 
-def compute_full_traj(quad, t_np, pos_np, vel_np, alin_np):
+def compute_full_traj(
+    quad: Quad,
+    t_np: FloatArray,
+    pos_np: FloatArray,
+    vel_np: FloatArray,
+    alin_np: FloatArray,
+) -> tuple[FloatArray, FloatArray, FloatArray]:
     len_traj = t_np.shape[0]
     dt = np.mean(np.diff(t_np))
 
@@ -323,16 +341,16 @@ def compute_full_traj(quad, t_np, pos_np, vel_np, alin_np):
 
 
 def compute_random_trajectory(
-    quad,
-    arena_bound_max,
-    arena_bound_min,
-    freq_x,
-    freq_y,
-    freq_z,
-    duration=30.0,
-    dt=0.01,
-    seed=0,
-):
+    quad: Quad,
+    arena_bound_max: FloatArray,
+    arena_bound_min: FloatArray,
+    freq_x: float,
+    freq_y: float,
+    freq_z: float,
+    duration: float = 30.0,
+    dt: float = 0.01,
+    seed: int = 0,
+) -> tuple[FloatArray, FloatArray, FloatArray]:
     # print("Computing random trajectory!")
     assert dt == 0.01
 
@@ -467,7 +485,9 @@ def compute_random_trajectory(
     return trajectory, motor_inputs, t_vec
 
 
-def compute_geometric_trajectory(quad, duration=30.0, dt=0.001):
+def compute_geometric_trajectory(
+    quad: Quad, duration: float = 30.0, dt: float = 0.001
+) -> tuple[FloatArray, FloatArray, FloatArray]:
     print("Computing geometric trajectory!")
     assert dt == 0.001
 
@@ -563,7 +583,12 @@ def compute_geometric_trajectory(quad, duration=30.0, dt=0.001):
     return trajectory, motor_inputs, t_vec
 
 
-def load_prepare_trajectory(base_dir, dt, speed_factor, test=False):
+def load_prepare_trajectory(
+    base_dir: str,
+    dt: float,
+    speed_factor: float,
+    test: bool = False,
+) -> FloatArray:
     """
     speed factor: between 0 and 1, 0.6 would mean that it's going at 0.6 of the
     actual speed (but discrete steps! if dt=0.05 then speed_factor can only be
@@ -605,7 +630,7 @@ def load_prepare_trajectory(base_dir, dt, speed_factor, test=False):
     return transformed_ref
 
 
-def make_dataset():
+def make_dataset() -> None:
     config = {
         "duration": 10,
         "train_split": 0.9,

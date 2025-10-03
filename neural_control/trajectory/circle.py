@@ -1,4 +1,10 @@
+from __future__ import annotations
+
+from typing import Any, Sequence
+
 import numpy as np
+from numpy.typing import NDArray
+
 from .plan_trajectory import get_reference
 
 
@@ -9,16 +15,16 @@ class Circle:
 
     def __init__(
         self,
-        drone_state,
-        render=False,
-        renderer=None,
-        radius=1,
-        plane=[0, 1],
-        direction=1,
-        max_drone_dist=.25,
-        horizon=10,
-        dt=0.02
-    ):
+        drone_state: NDArray[np.float_],
+        render: bool = False,
+        renderer: Any | None = None,
+        radius: float = 1.0,
+        plane: Sequence[int] = (0, 1),
+        direction: int = 1,
+        max_drone_dist: float = 0.25,
+        horizon: int = 10,
+        dt: float = 0.02,
+    ) -> None:
         """
         initialize a circle with a center and radius
         Arguments:
@@ -40,7 +46,9 @@ class Circle:
                 raise ValueError("if render is true, need to input renderer")
             renderer.add_object(CircleObject(self.mid_point, radius))
 
-    def init_from_tangent(self, pos, vel):
+    def init_from_tangent(
+        self, pos: NDArray[np.float_], vel: NDArray[np.float_]
+    ) -> None:
         """
         Initialize the center by the current drone position
         Arguments:
@@ -62,15 +70,15 @@ class Circle:
         mid_point_tmp[self.plane] = mid_point_2D
         self.mid_point = mid_point_tmp
 
-    def to_2D(self, point):
+    def to_2D(self, point: NDArray[np.float_]) -> NDArray[np.float_]:
         return (point - self.mid_point)[self.plane]
 
-    def to_3D(self, point):
+    def to_3D(self, point: NDArray[np.float_]) -> NDArray[np.float_]:
         point_3D = np.zeros(3)
         point_3D[self.plane] = point
         return point_3D + self.mid_point
 
-    def to_alpha(self, point_2D):
+    def to_alpha(self, point_2D: NDArray[np.float_]) -> float:
         x, y = tuple(point_2D)
         if x == 0:
             alpha = np.pi * 0.5
@@ -82,19 +90,23 @@ class Circle:
             alpha += 2 * np.pi
         return alpha
 
-    def point_on_circle(self, alpha):
+    def point_on_circle(self, alpha: float) -> NDArray[np.float_]:
         return np.array(
             [np.cos(alpha) * self.radius,
              np.sin(alpha) * self.radius]
         )
 
-    def project_point(self, point, addon=0):
+    def project_point(
+        self, point: NDArray[np.float_], addon: float = 0.0
+    ) -> NDArray[np.float_]:
         point_2D = self.to_2D(point)
         alpha = self.to_alpha(point_2D) + addon * self.direction
         projected = self.point_on_circle(alpha)
         return projected
 
-    def next_target(self, point, dist_3D):
+    def next_target(
+        self, point: NDArray[np.float_], dist_3D: float
+    ) -> NDArray[np.float_]:
         """
         Get next target on circle with given maximum distance
         """
@@ -121,7 +133,9 @@ class Circle:
         target_point = self.point_on_circle(alpha)
         return self.to_3D(target_point)
 
-    def get_velocity(self, point_3D, stepsize=0.1):
+    def get_velocity(
+        self, point_3D: NDArray[np.float_], stepsize: float = 0.1
+    ) -> NDArray[np.float_]:
         """
         Compute the tangent to a point
         """
@@ -131,10 +145,14 @@ class Circle:
         next_point = self.point_on_circle(next_alpha)
         return self.to_3D(next_point) - point_3D
 
-    def project_on_ref(self, point):
+    def project_on_ref(self, point: NDArray[np.float_]) -> NDArray[np.float_]:
         return self.to_3D(self.project_point(point, addon=0))
 
-    def get_ref_traj(self, drone_state, drone_acc):
+    def get_ref_traj(
+        self,
+        drone_state: NDArray[np.float_],
+        drone_acc: NDArray[np.float_],
+    ) -> NDArray[np.float_]:
         drone_pos = drone_state[:3]
         goal_pos = self.next_target(drone_pos, self.max_drone_dist)
         direction = self.get_velocity(goal_pos)
@@ -163,12 +181,12 @@ class Circle:
 
 class CircleObject():
 
-    def __init__(self, mid_point, radius):
+    def __init__(self, mid_point: NDArray[np.float_], radius: float) -> None:
         self.mid_point = mid_point.copy()
         self.mid_point[2] += 1
         self.radius = radius
 
-    def draw(self, renderer):
+    def draw(self, renderer: Any) -> None:
         renderer.draw_circle(
             tuple(self.mid_point), self.radius, (0, 1, 0), filled=False
         )

@@ -10,3 +10,7 @@ Action: TypeAlias = FloatArray
 StateComp: TypeAlias = (
     FloatArray | Euler
 )  # position/attitude/velocity/angular_velocity/rotorspeeds
+- [x] Type Hints for all neural_control/controllers/*.py
+- [x] Type Hints for all neural_control/dynamics/*.py
+- [x] Type Hints for all neural_control/models/*.py
+- [x] Type Hints for all neural_control/trajectory/*.py

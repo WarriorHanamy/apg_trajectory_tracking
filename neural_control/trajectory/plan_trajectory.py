@@ -30,7 +30,14 @@ VERSION
     0.1
 """
 
+from __future__ import annotations
+
+from typing import Iterable, Sequence, Tuple
+
 import numpy as np
+from numpy.typing import NDArray
+
+FloatArray = NDArray[np.float_]
 
 
 class SingleAxisTrajectory:
@@ -45,7 +52,7 @@ class SingleAxisTrajectory:
     feasibility.
     """
 
-    def __init__(self, pos0, vel0, acc0):
+    def __init__(self, pos0: float, vel0: float, acc0: float) -> None:
         """Initialise the trajectory with starting state."""
         self._p0 = pos0
         self._v0 = vel0
@@ -55,22 +62,22 @@ class SingleAxisTrajectory:
         self._af = 0
         self.reset()
 
-    def set_goal_position(self, posf):
+    def set_goal_position(self, posf: float) -> None:
         """Define the goal position for a trajectory."""
         self._posGoalDefined = True
         self._pf = posf
 
-    def set_goal_velocity(self, velf):
+    def set_goal_velocity(self, velf: float) -> None:
         """Define the goal velocity for a trajectory."""
         self._velGoalDefined = True
         self._vf = velf
 
-    def set_goal_acceleration(self, accf):
+    def set_goal_acceleration(self, accf: float) -> None:
         """Define the goal acceleration for a trajectory."""
         self._accGoalDefined = True
         self._af = accf
 
-    def generate(self, Tf):
+    def generate(self, Tf: float) -> None:
         """ Generate a trajectory of duration Tf.
         Generate a trajectory, using the previously defined goal end states
         (such as position, velocity, and/or acceleration).
@@ -132,33 +139,33 @@ class SingleAxisTrajectory:
             self._a * self._g * T2 / 3.0
         ) + self._a * self._b * T3 / 4.0 + (self._a**2) * T4 / 20.0
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset the trajectory parameters."""
         self._cost = float("inf")
         self._accGoalDefined = self._velGoalDefined = self._posGoalDefined = False
         self._accPeakTimes = [None, None]
         pass
 
-    def resetPeak(self):
+    def resetPeak(self) -> None:
         self._accPeakTimes = [None, None]
 
-    def get_jerk(self, t):
+    def get_jerk(self, t: float) -> float:
         """Return the scalar jerk at time t."""
         return self._g + self._b * t + (1.0 / 2.0) * self._a * t * t
 
-    def get_acceleration(self, t):
+    def get_acceleration(self, t: float) -> float:
         """Return the scalar acceleration at time t."""
         return self._a0 + self._g * t + (1.0 / 2.0) * self._b * t * t + (
             1.0 / 6.0
         ) * self._a * t * t * t
 
-    def get_velocity(self, t):
+    def get_velocity(self, t: float) -> float:
         """Return the scalar velocity at time t."""
         return self._v0 + self._a0 * t + (1.0 / 2.0) * self._g * t * t + (
             1.0 / 6.0
         ) * self._b * t * t * t + (1.0 / 24.0) * self._a * t * t * t * t
 
-    def get_position(self, t):
+    def get_position(self, t: float) -> float:
         """Return the scalar position at time t."""
         return self._p0 + self._v0 * t + (1.0 / 2.0) * self._a0 * t * t + (
             1.0 / 6.0
@@ -166,7 +173,7 @@ class SingleAxisTrajectory:
             1.0 / 120.0
         ) * self._a * t * t * t * t * t
 
-    def get_min_max_acc(self, t1, t2):
+    def get_min_max_acc(self, t1: float, t2: float) -> Tuple[float, float]:
         """
         Return the extrema of the acceleration trajectory between t1 and t2.
         """
@@ -208,7 +215,7 @@ class SingleAxisTrajectory:
             )
         return (aMinOut, aMaxOut)
 
-    def get_max_jerk_squared(self, t1, t2):
+    def get_max_jerk_squared(self, t1: float, t2: float) -> float:
         """
         Return the extrema of the jerk squared trajectory between t1 and t2.
         """
@@ -221,31 +228,31 @@ class SingleAxisTrajectory:
 
         return jMaxSqr
 
-    def get_param_alpha(self):
+    def get_param_alpha(self) -> float:
         """Return the parameter alpha which defines the trajectory."""
         return self._a
 
-    def get_param_beta(self):
+    def get_param_beta(self) -> float:
         """Return the parameter beta which defines the trajectory."""
         return self._b
 
-    def get_param_gamma(self):
+    def get_param_gamma(self) -> float:
         """Return the parameter gamma which defines the trajectory."""
         return self._g
 
-    def get_initial_acceleration(self):
+    def get_initial_acceleration(self) -> float:
         """Return the start acceleration of the trajectory."""
         return self._a0
 
-    def get_initial_velocity(self):
+    def get_initial_velocity(self) -> float:
         """Return the start velocity of the trajectory."""
         return self._v0
 
-    def get_initial_position(self):
+    def get_initial_position(self) -> float:
         """Return the start position of the trajectory."""
         return self._p0
 
-    def get_cost(self):
+    def get_cost(self) -> float:
         """Return the total cost of the trajectory."""
         return self._cost
 
@@ -267,7 +274,7 @@ class InputFeasibilityResult:
     ) = range(5)
 
     @classmethod
-    def to_string(cls, ifr):
+    def to_string(cls, ifr: int) -> str:
         """Return the name of the result."""
         if ifr == InputFeasibilityResult.Feasible:
             return "Feasible"
@@ -289,7 +296,7 @@ class StateFeasibilityResult:
     Feasible, Infeasible = range(2)
 
     @classmethod
-    def to_string(cls, ifr):
+    def to_string(cls, ifr: int) -> str:
         """Return the name of the result."""
         if ifr == StateFeasibilityResult.Feasible:
             return "Feasible"
@@ -321,7 +328,13 @@ class RapidTrajectory:
     zero-indexed.
     """
 
-    def __init__(self, pos0, vel0, acc0, gravity):
+    def __init__(
+        self,
+        pos0: Sequence[float],
+        vel0: Sequence[float],
+        acc0: Sequence[float],
+        gravity: Sequence[float],
+    ) -> None:
         """Initialise the trajectory.
         Initialise the trajectory with the initial quadrocopter state, and the
         orientation of gravity for this problem.
@@ -342,11 +355,11 @@ class RapidTrajectory:
         self.threshold = -0.5
         self.reset()
 
-    def unset_orientation_bound(self):
+    def unset_orientation_bound(self) -> None:
         for i in range(3):
             self._axis[i].unset_orientation_bound()
 
-    def set_goal_position(self, pos):
+    def set_goal_position(self, pos: Sequence[float | None]) -> None:
         """ Define the goal end position.
         Define the end position for all three axes. To leave components free,
         list the end state as ``None`` in the argument, or use the function
@@ -357,7 +370,7 @@ class RapidTrajectory:
                 continue
             self.set_goal_position_in_axis(i, pos[i])
 
-    def set_goal_velocity(self, vel):
+    def set_goal_velocity(self, vel: Sequence[float | None]) -> None:
         """ Define the goal end velocity.
         Define the end velocity for all three axes. To leave components free,
         list the end state as ``None`` in the argument, or use the function
@@ -368,7 +381,7 @@ class RapidTrajectory:
                 continue
             self.set_goal_velocity_in_axis(i, vel[i])
 
-    def set_goal_acceleration(self, acc):
+    def set_goal_acceleration(self, acc: Sequence[float | None]) -> None:
         """ Define the goal end acceleration.
         Define the end acceleration for all three axes. To leave components
         free, list the end state as ``None`` in the argument, or use the
@@ -379,23 +392,23 @@ class RapidTrajectory:
                 continue
             self.set_goal_acceleration_in_axis(i, acc[i])
 
-    def set_goal_position_in_axis(self, axNum, pos):
+    def set_goal_position_in_axis(self, axNum: int, pos: float) -> None:
         """ Define the goal end position in axis `axNum`."""
         self._axis[axNum].set_goal_position(pos)
 
-    def set_goal_velocity_in_axis(self, axNum, vel):
+    def set_goal_velocity_in_axis(self, axNum: int, vel: float) -> None:
         """ Define the goal end velocity in axis `axNum`."""
         self._axis[axNum].set_goal_velocity(vel)
 
-    def set_goal_acceleration_in_axis(self, axNum, acc):
+    def set_goal_acceleration_in_axis(self, axNum: int, acc: float) -> None:
         """ Define the goal end acceleration in axis `axNum`."""
         self._axis[axNum].set_goal_acceleration(acc)
 
-    def resetPeak(self):
+    def resetPeak(self) -> None:
         for i in range(3):
             self._axis[i].resetPeak()
 
-    def reset(self):
+    def reset(self) -> None:
         """ Reset the trajectory generator.
         Removes all goal states, and resets the cost. Use this if you want to
         try multiple trajectories from one initial state.
@@ -403,7 +416,7 @@ class RapidTrajectory:
         for i in range(3):
             self._axis[i].reset()
 
-    def generate(self, timeToGo):
+    def generate(self, timeToGo: float) -> None:
         """ Calculate a trajectory of duration `timeToGo`.
         Calculates a trajectory of duration `timeToGo`, with the problem data
         defined so far. If something (e.g. goal position) has not been defined,
@@ -414,8 +427,12 @@ class RapidTrajectory:
             self._axis[i].generate(self._tf)
 
     def check_input_feasibility(
-        self, fminAllowed, fmaxAllowed, wmaxAllowed, minTimeSection
-    ):
+        self,
+        fminAllowed: float,
+        fmaxAllowed: float,
+        wmaxAllowed: float,
+        minTimeSection: float,
+    ) -> int:
         """ Run recursive input feasibility test on trajectory.
         Attempts to prove/disprove the feasibility of the trajectory with
         respect to input constraints. The result is one of three outcomes:
@@ -440,8 +457,14 @@ class RapidTrajectory:
         )
 
     def _check_input_feasibility_section(
-        self, fminAllowed, fmaxAllowed, wmaxAllowed, minTimeSection, t1, t2
-    ):
+        self,
+        fminAllowed: float,
+        fmaxAllowed: float,
+        wmaxAllowed: float,
+        minTimeSection: float,
+        t1: float,
+        t2: float,
+    ) -> int:
         """Recursive test used by `check_input_feasibility`.
         Returns:
             An enumeration, of type InputFeasibilityResult.
@@ -537,7 +560,11 @@ class RapidTrajectory:
         #definitely feasible:
         return InputFeasibilityResult.Feasible
 
-    def check_position_feasibility(self, boundaryPoint, boundaryNormal):
+    def check_position_feasibility(
+        self,
+        boundaryPoint: Sequence[float],
+        boundaryNormal: Sequence[float],
+    ) -> int:
         """Test whether the position trajectory is allowable w.r.t. a plane.
         Test whether the position trajectory remains on the allowable side
         of a given plane. The plane is defined by giving a point on the plane,
@@ -594,26 +621,26 @@ class RapidTrajectory:
         #all points tested feasible:
         return StateFeasibilityResult.Feasible
 
-    def unset_orientation_bound(self):
+    def unset_orientation_bound(self) -> None:
         self.threshold = 1
 
-    def get_jerk(self, t):
+    def get_jerk(self, t: float) -> FloatArray:
         """ Return the trajectory's 3D jerk value at time `t`."""
         return np.array([self._axis[i].get_jerk(t) for i in range(3)])
 
-    def get_acceleration(self, t):
+    def get_acceleration(self, t: float) -> FloatArray:
         """ Return the trajectory's 3D acceleration value at time `t`."""
         return np.array([self._axis[i].get_acceleration(t) for i in range(3)])
 
-    def get_velocity(self, t):
+    def get_velocity(self, t: float) -> FloatArray:
         """ Return the trajectory's 3D velocity value at time `t`."""
         return np.array([self._axis[i].get_velocity(t) for i in range(3)])
 
-    def get_position(self, t):
+    def get_position(self, t: float) -> FloatArray:
         ''' Return the trajectory's 3D position value at time `t`.'''
         return np.array([self._axis[i].get_position(t) for i in range(3)])
 
-    def get_normal_vector(self, t):
+    def get_normal_vector(self, t: float) -> FloatArray:
         """ Return the vehicle's normal vector at time `t`.
         The vehicle's normal vector is that vector along which the thrust
         points, e_3. The required body rates to fly a trajectory can be
@@ -629,7 +656,7 @@ class RapidTrajectory:
         v = (self.get_acceleration(t) - self._grav)
         return v / np.linalg.norm(v)
 
-    def get_thrust(self, t):
+    def get_thrust(self, t: float) -> float:
         """ Return the thrust input at time `t`.
         Returns the thrust required at time `t` along the trajectory, in units
         of acceleration.
@@ -640,7 +667,7 @@ class RapidTrajectory:
         """
         return np.linalg.norm(self.get_acceleration(t) - self._grav)
 
-    def get_body_rates(self, t, dt=1e-3):
+    def get_body_rates(self, t: float, dt: float = 1e-3) -> FloatArray:
         """ Return the body rates input at time `t`, in inertial frame.
         Returns the body rates required at time `t` along the trajectory, in
         units of [rad/s]. This is done by discretizing the normal direction
@@ -663,7 +690,7 @@ class RapidTrajectory:
         else:
             return np.array([0, 0, 0])
 
-    def get_cost(self):
+    def get_cost(self) -> float:
         """ Return the total trajectory cost.
         Returns the total trajectory cost. Trajectories with higher cost will
         tend to have more aggressive inputs (thrust and body rates), so that
@@ -672,20 +699,28 @@ class RapidTrajectory:
         return self._axis[0].get_cost() + self._axis[1].get_cost(
         ) + self._axis[2].get_cost()
 
-    def get_param_alpha(self, axNum):
+    def get_param_alpha(self, axNum: int) -> float:
         """Return the three parameters alpha which defines the trajectory."""
         return self._axis[axNum].get_param_alpha()
 
-    def get_param_beta(self, axNum):
+    def get_param_beta(self, axNum: int) -> float:
         """Return the three parameters beta which defines the trajectory."""
         return self._axis[axNum].get_param_beta()
 
-    def get_param_gamma(self, axNum):
+    def get_param_gamma(self, axNum: int) -> float:
         """Return the three parameters gamma which defines the trajectory."""
         return self._axis[axNum].get_param_gamma()
 
 
-def get_reference_linear(pos0, vel0, acc0, posf, velf, delta_t=0.02, ref_length=5):
+def get_reference_linear(
+    pos0: FloatArray,
+    vel0: FloatArray,
+    acc0: FloatArray,
+    posf: FloatArray,
+    velf: FloatArray,
+    delta_t: float = 0.02,
+    ref_length: int = 5,
+) -> FloatArray:
     """
     Compute reference trajectory based on start (0) and final (f) states
     Simplified version: only interpolate between positions and velocities
@@ -698,7 +733,15 @@ def get_reference_linear(pos0, vel0, acc0, posf, velf, delta_t=0.02, ref_length=
 
     return traj
 
-def get_reference(pos0, vel0, acc0, posf, velf, delta_t=0.02, ref_length=5):
+def get_reference(
+    pos0: FloatArray,
+    vel0: FloatArray,
+    acc0: FloatArray,
+    posf: FloatArray,
+    velf: FloatArray,
+    delta_t: float = 0.02,
+    ref_length: int = 5,
+) -> FloatArray:
     """
     Compute reference trajectory based on start (0) and final (f) states
     """

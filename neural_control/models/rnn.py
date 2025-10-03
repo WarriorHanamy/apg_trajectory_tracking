@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 import torch
 import torch.nn as nn
-import torch.functional as F
 
 # from neural_control.environments.drone_dynamics import simulate_quadrotor
 
@@ -8,8 +9,13 @@ import torch.functional as F
 class LSTM_NEW(nn.Module):
 
     def __init__(
-        self, state_dim, horizon, ref_dim, nr_actions_predict, conv=True
-    ):
+        self,
+        state_dim: int,
+        horizon: int,
+        ref_dim: int,
+        nr_actions_predict: int,
+        conv: bool = True,
+    ) -> None:
         print("Using LSTM cell")
         super(LSTM_NEW, self).__init__()
         self.state_dim = state_dim
@@ -27,12 +33,12 @@ class LSTM_NEW(nn.Module):
         self.lstm = nn.LSTMCell(state_dim + self.reshape_len, 8)
         self.reset_hidden_state(1)
 
-    def reset_hidden_state(self, batch_size=1):
+    def reset_hidden_state(self, batch_size: int = 1) -> None:
         # we need to reset the hidden state whenever starting a new sequence (?)
         self.hidden_state = torch.randn(batch_size, 8)
         self.cell_state = torch.randn(batch_size, 8)
 
-    def forward(self, state, ref):
+    def forward(self, state: torch.Tensor, ref: torch.Tensor) -> torch.Tensor:
         # process state and reference differently
         if self.conv:
             # ref = torch.reshape(ref, (-1, self.ref_dim, 3))

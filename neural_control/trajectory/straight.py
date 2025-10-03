@@ -1,15 +1,27 @@
+from __future__ import annotations
+
+from typing import Any
+
 import numpy as np
+from numpy.typing import NDArray
+
 from .plan_trajectory import get_reference
+
+FloatArray = NDArray[np.float_]
 
 
 class Hover:
 
-    def __init__(self, drone_state, *args, **kwargs):
+    def __init__(
+        self, drone_state: FloatArray, *args: Any, **kwargs: Any
+    ) -> None:
         self.target_pos = drone_state[:3]
         self.dt = kwargs["dt"]
         self.horizon = kwargs["horizon"]
 
-    def get_ref_traj(self, drone_state, drone_acc):
+    def get_ref_traj(
+        self, drone_state: FloatArray, drone_acc: FloatArray
+    ) -> FloatArray:
         pos = drone_state[:3]
         vel = drone_state[6:9]
         trajectory = get_reference(
@@ -23,7 +35,7 @@ class Hover:
         )
         return trajectory
 
-    def project_on_ref(self, drone_state):
+    def project_on_ref(self, drone_state: FloatArray) -> FloatArray:
         return self.target_pos
 
 
@@ -31,14 +43,14 @@ class Straight:
 
     def __init__(
         self,
-        drone_state,
-        render=False,
-        renderer=None,
-        max_drone_dist=0.25,
-        horizon=10,
-        dt=0.05,
-        **kwargs
-    ):
+        drone_state: FloatArray,
+        render: bool = False,
+        renderer: Any | None = None,
+        max_drone_dist: float = 0.25,
+        horizon: int = 10,
+        dt: float = 0.05,
+        **kwargs: Any,
+    ) -> None:
         """
         Make trajectory from velocity
         """
@@ -61,7 +73,9 @@ class Straight:
         self.horizon = horizon
         self.max_drone_dist = max_drone_dist
 
-    def get_ref_traj(self, drone_state, drone_acc):
+    def get_ref_traj(
+        self, drone_state: FloatArray, drone_acc: FloatArray
+    ) -> FloatArray:
         """
         Given a straight reference between A and B, compute the next x ref states
         b_on_line - a_on_line must be a unit vector!
@@ -85,7 +99,7 @@ class Straight:
         )
         return reference
 
-    def project_on_ref(self, drone_state):
+    def project_on_ref(self, drone_state: FloatArray) -> FloatArray:
         """
         Project the current state to the trajectory
         """
@@ -103,21 +117,24 @@ class Straight:
         return result
 
 
-class StraightObject():
+class StraightObject:
 
-    def __init__(self, start, end):
+    def __init__(self, start: FloatArray, end: FloatArray) -> None:
         self.start = start.copy()
         self.start[2] += 1
         self.end = end.copy()
         self.end[2] += 1
 
-    def draw(self, renderer):
+    def draw(self, renderer: Any) -> None:
         renderer.draw_line_3d(self.start, self.end, color=(1, 0, 0))
 
 
 def sample_points_on_straight(
-    current_ref_point, direction, step_size=0.2, ref_length=5
-):
+    current_ref_point: FloatArray,
+    direction: FloatArray,
+    step_size: float = 0.2,
+    ref_length: int = 5,
+) -> FloatArray:
     """
     Get the next x reference points in direction direction starting from
     current_ref_point
@@ -136,7 +153,11 @@ def sample_points_on_straight(
     return reference_states
 
 
-def straight_training_sample(step_size=0.2, max_drone_dist=0.1, ref_length=5):
+def straight_training_sample(
+    step_size: float = 0.2,
+    max_drone_dist: float = 0.1,
+    ref_length: int = 5,
+) -> FloatArray:
     """
     Sample necessary training data for training a straight trajectory
     """
@@ -155,7 +176,9 @@ def straight_training_sample(step_size=0.2, max_drone_dist=0.1, ref_length=5):
     return reference_states
 
 
-def sample_to_input(drone_state, reference_states):
+def sample_to_input(
+    drone_state: FloatArray, reference_states: FloatArray
+) -> FloatArray:
     """
     Takes absolute states and returns them as suitable input to a neural net
     Arguments:

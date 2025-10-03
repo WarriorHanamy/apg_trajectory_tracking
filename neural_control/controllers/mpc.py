@@ -1,9 +1,12 @@
-"""
-Standard MPC for Passing through a dynamic gate
-"""
+"""Standard MPC controller implementations."""
+
+from __future__ import annotations
+
+from typing import Any, Sequence, Tuple
 
 import casadi as ca
 import numpy as np
+from numpy.typing import NDArray
 
 from neural_control.dynamics.quad_dynamics_flightmare import FlightmareDynamicsMPC
 from neural_control.dynamics.quad_dynamics_simple import SimpleDynamicsMPC
@@ -17,7 +20,13 @@ class MPC:
     Nonlinear MPC
     """
 
-    def __init__(self, horizon=20, dt=0.05, dynamics="high_mpc", **kwargs):
+    def __init__(
+        self,
+        horizon: int = 20,
+        dt: float = 0.05,
+        dynamics: str = "high_mpc",
+        **kwargs: Any,
+    ) -> None:
         """
         Nonlinear MPC for quadrotor control
         """
@@ -33,7 +42,7 @@ class MPC:
         self._gz = 9.81
 
         # add to reference
-        self.addon = np.swapaxes(
+        self.addon: NDArray[np.float_] = np.swapaxes(
             np.vstack(
                 (
                     np.expand_dims(np.arange(0, self._T - 0.001, self._dt), 0),
@@ -62,7 +71,7 @@ class MPC:
 
         self._initDynamics()
 
-    def _initParamsHighMPC(self):
+    def _initParamsHighMPC(self) -> None:
         # Quadrotor constant
         self._w_max_xy = 6.0
         self._w_min_xy = -6.0
@@ -84,7 +93,7 @@ class MPC:
         # default u
         self._default_u = [self._gz, 0, 0, 0]
 
-    def _initParamsCartpole(self):
+    def _initParamsCartpole(self) -> None:
         self._s_dim = 4
         self._u_dim = 1
         self._w_min_xy = -1
@@ -99,7 +108,7 @@ class MPC:
         # default u
         self._default_u = [0]
 
-    def _initParamsSimpleQuad(self):
+    def _initParamsSimpleQuad(self) -> None:
         # Quadrotor constant
         self._w_max_xy = 1
         self._w_min_xy = 0
@@ -116,7 +125,7 @@ class MPC:
         # default u
         self._default_u = [0.5, 0.5, 0.5, 0.5]
 
-    def _initParamsFixedWing_2D(self):
+    def _initParamsFixedWing_2D(self) -> None:
         self._s_dim = 6
         self._u_dim = 2
         self._w_min_xy = 0
@@ -132,7 +141,7 @@ class MPC:
         # default u
         self._default_u = [0.25, 0.5]
 
-    def _initParamsFixedWing_3D(self):
+    def _initParamsFixedWing_3D(self) -> None:
         self._s_dim = 12
         self._u_dim = 4
         self._w_min_xy = 0
@@ -150,7 +159,7 @@ class MPC:
 
     def _initDynamics(
         self,
-    ):
+    ) -> None:
         # # # # # # # # # # # # # # # # # # #
         # ---------- Input States -----------
         # # # # # # # # # # # # # # # # # # #
@@ -302,7 +311,7 @@ class MPC:
 
         self.solver = ca.nlpsol("solver", "ipopt", nlp_dict, ipopt_options)
 
-    def solve(self, ref_states):
+    def solve(self, ref_states: Sequence[float] | NDArray[np.float_]) -> Tuple[NDArray[np.float_], NDArray[np.float_]]:
         # # # # # # # # # # # # # # # #
         # -------- solve NLP ---------
         # # # # # # # # # # # # # # # #
@@ -349,7 +358,11 @@ class MPC:
         # print(x0_array[1:, :9])
         return opt_u, x0_array
 
-    def preprocess_quad(self, current_state, ref_states):
+    def preprocess_quad(
+        self,
+        current_state: NDArray[np.float_],
+        ref_states: NDArray[np.float_],
+    ) -> list[float]:
         """
         current_state: list / array of len 12
         ref_states: array of shape (horizon, 9) with pos, vel, acc
@@ -383,7 +396,11 @@ class MPC:
         )
         return flattened_ref
 
-    def preprocess_fixed_wing(self, current_state, ref_states):
+    def preprocess_fixed_wing(
+        self,
+        current_state: NDArray[np.float_],
+        ref_states: NDArray[np.float_],
+    ) -> list[float]:
         """
         Construct a reference as required by MPC from the current state and
         the desired ref
@@ -416,7 +433,7 @@ class MPC:
 
         return flattened_ref
 
-    def preprocess_cartpole(self, current_state):
+    def preprocess_cartpole(self, current_state: NDArray[np.float_]) -> list[float]:
         # interpolate theta
         inter_theta = np.linspace(current_state[2], 0, self._N + 2)
         inter_theta_dot = np.linspace(current_state[3], 0, self._N + 2)
@@ -440,7 +457,11 @@ class MPC:
         )
         return flattened_ref
 
-    def predict_actions(self, current_state, ref_states):
+    def predict_actions(
+        self,
+        current_state: NDArray[np.float_],
+        ref_states: NDArray[np.float_],
+    ) -> NDArray[np.float_]:
         if self.dynamics_model in ["simple_quad", "flightmare"]:
             preprocessed_ref = self.preprocess_quad(current_state, ref_states)
         elif self.dynamics_model in ["fixed_wing_2D", "fixed_wing_3D"]:
@@ -450,7 +471,7 @@ class MPC:
         action, _ = self.solve(preprocessed_ref)
         return np.array([action[:, 0]])
 
-    def drone_dynamics_high_mpc(self, dt):
+    def drone_dynamics_high_mpc(self, dt: float) -> ca.Function:
         self.f = self.get_dynamics_high_mpc()
 
         M = 4  # refinement
@@ -471,7 +492,7 @@ class MPC:
         F = ca.Function("F", [X0, U], [X])
         return F
 
-    def get_dynamics_high_mpc(self):
+    def get_dynamics_high_mpc(self) -> ca.Function:
         px, py, pz = ca.SX.sym("px"), ca.SX.sym("py"), ca.SX.sym("pz")
         #
         qw, qx, qy, qz = (

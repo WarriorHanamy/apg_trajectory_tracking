@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 OUT_SIZE = 10  # one action variable between -1 and 1
 DIM = 4  # input dimension
@@ -8,7 +9,7 @@ DIM = 4  # input dimension
 
 class Net(nn.Module):
 
-    def __init__(self, in_size, out_size):
+    def __init__(self, in_size: int, out_size: int) -> None:
         super(Net, self).__init__()
         # conf: in channels, out channels, kernel size
         self.fc0 = nn.Linear(in_size, 32)
@@ -17,7 +18,7 @@ class Net(nn.Module):
         self.fc3 = nn.Linear(64, 32)
         self.fc_out = nn.Linear(32, out_size)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x[:, 0] *= 0
         x = torch.tanh(self.fc0(x))
         # x = x * torch.from_numpy(np.array([0, 1, 1, 1]))
@@ -30,7 +31,7 @@ class Net(nn.Module):
 
 class StateToImg(nn.Module):
 
-    def __init__(self, width=100, height=120):
+    def __init__(self, width: int = 100, height: int = 120) -> None:
         super(StateToImg, self).__init__()
         self.img_height = height
         self.img_width = width
@@ -39,7 +40,7 @@ class StateToImg(nn.Module):
         self.fc3 = nn.Linear(128, 256)
         self.fc_out = nn.Linear(256, width * height)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = torch.tanh(self.fc1(x))
         x = torch.tanh(self.fc2(x))
         x = torch.tanh(self.fc3(x))
@@ -50,7 +51,13 @@ class StateToImg(nn.Module):
 
 class ImageControllerNet(nn.Module):
 
-    def __init__(self, img_height, img_width, out_size=1, nr_img=5):
+    def __init__(
+        self,
+        img_height: int,
+        img_width: int,
+        out_size: int = 1,
+        nr_img: int = 5,
+    ) -> None:
         super(ImageControllerNet, self).__init__()
         # all raw images and the subtraction
         self.conv1 = nn.Conv2d(nr_img * 2 - 1, 10, 5)
@@ -63,7 +70,7 @@ class ImageControllerNet(nn.Module):
         self.fc3 = nn.Linear(64, 32)
         self.fc_out = nn.Linear(32, out_size)
 
-    def forward(self, image):
+    def forward(self, image: torch.Tensor) -> torch.Tensor:
         cat_all = [image]
         for i in range(image.size()[1] - 1):
             cat_all.append(
@@ -91,7 +98,13 @@ STRIDE = 2  # original = 2
 
 class ImageControllerNetDQN(nn.Module):
 
-    def __init__(self, h, w, out_size=1, nr_img=3):
+    def __init__(
+        self,
+        h: int,
+        w: int,
+        out_size: int = 1,
+        nr_img: int = 3,
+    ) -> None:
         super(ImageControllerNetDQN, self).__init__()
         self.conv1 = nn.Conv2d(
             nr_img, HIDDEN_LAYER_1, kernel_size=KERNEL_SIZE, stride=STRIDE
@@ -114,7 +127,7 @@ class ImageControllerNetDQN(nn.Module):
 
         # Number of Linear input connections depends on output of conv2d layers
         # and therefore the input image size, so compute it.
-        def conv2d_size_out(size, kernel_size=5, stride=2):
+        def conv2d_size_out(size: int, kernel_size: int = 5, stride: int = 2) -> int:
             return (size - (kernel_size - 1) - 1) // stride + 1
 
         convw = conv2d_size_out(conv2d_size_out(conv2d_size_out(w)))
@@ -125,7 +138,7 @@ class ImageControllerNetDQN(nn.Module):
 
     # Called with either one element to determine next action, or a batch
     # during optimization. Returns tensor([[left0exp,right0exp]...]).
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = torch.relu(self.bn1(self.conv1(x)))
         x = torch.relu(self.bn2(self.conv2(x)))
         x = torch.relu(self.bn3(self.conv3(x)))

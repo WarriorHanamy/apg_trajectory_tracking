@@ -1,14 +1,19 @@
-import casadi as ca
-import torch
-import os
+from __future__ import annotations
+
 import json
+import os
 from pathlib import Path
+
+import casadi as ca
 import numpy as np
+import torch
 
 
 class Dynamics:
 
-    def __init__(self, modified_params={}):
+    def __init__(
+        self, modified_params: dict[str, float] | None = None
+    ) -> None:
         """
         Initialzie quadrotor dynamics
         Args:
@@ -21,7 +26,8 @@ class Dynamics:
             self.cfg = json.load(infile)
 
         # update with modified parameters
-        self.cfg.update(modified_params)
+        if modified_params:
+            self.cfg.update(modified_params)
 
         device = "cpu"
         # NUMPY PARAMETERS
@@ -57,7 +63,7 @@ class Dynamics:
         self.ca_kinv_ang_vel_tau = ca.SX(np.array(self.kinv_ang_vel_tau))
 
     @staticmethod
-    def world_to_body_matrix(attitude):
+    def world_to_body_matrix(attitude: torch.Tensor) -> torch.Tensor:
         """
         Creates a transformation matrix for directions from world frame
         to body frame for a body with attitude given by `euler` Euler angles.
@@ -94,7 +100,7 @@ class Dynamics:
         return matrix
 
     @staticmethod
-    def to_euler_matrix(attitude):
+    def to_euler_matrix(attitude: torch.Tensor) -> torch.Tensor:
         # attitude is [roll, pitch, yaw]
         pitch = attitude[:, 1]
         roll = attitude[:, 0]
@@ -118,7 +124,9 @@ class Dynamics:
         return matrix
 
     @staticmethod
-    def euler_rate(attitude, angular_velocity):
+    def euler_rate(
+        attitude: torch.Tensor, angular_velocity: torch.Tensor
+    ) -> torch.Tensor:
         euler_matrix = Dynamics.to_euler_matrix(attitude)
         together = torch.matmul(
             euler_matrix, torch.unsqueeze(angular_velocity.float(), 2)
