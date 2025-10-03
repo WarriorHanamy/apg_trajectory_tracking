@@ -1,29 +1,18 @@
 """
 Adapted from https://github.com/ngc92/quadgym
 """
+
 import math
 import time
-from types import SimpleNamespace
 import numpy as np
 import torch
 
-import gym
-from gym import spaces
-from gym.utils import seeding
+import gymnasium as gym
+from gymnasium import spaces
+from gymnasium.utils import seeding
 
-from neural_control.trajectory.straight import (
-    straight_training_sample, get_reference
-)
-from neural_control.environments.rendering import (
-    Renderer, Ground, QuadCopter
-)
-from neural_control.environments.helper_simple_env import (
-    DynamicsState, Euler
-)
-from neural_control.dynamics.quad_dynamics_flightmare import (
-    FlightmareDynamics
-)
-from neural_control.dynamics.quad_dynamics_simple import SimpleDynamics
+from neural_control.environments.rendering import Renderer, Ground, QuadCopter
+from neural_control.environments.helper_simple_env import DynamicsState, Euler
 from neural_control.trajectory.generate_trajectory import load_prepare_trajectory
 
 device = "cpu"  # torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -34,16 +23,13 @@ class QuadRotorEnvBase(gym.Env):
     Simple simulation environment for a drone
     Drone parameters are defined in file copter.py (copter_params dict)
     """
-    metadata = {
-        'render.modes': ['human', 'rgb_array'],
-        'video.frames_per_second': 50
-    }
 
-    action_space = spaces.Box(0, 1, (4, ), dtype=np.float32)
-    observation_space = spaces.Box(0, 1, (6, ), dtype=np.float32)
+    metadata = {"render.modes": ["human", "rgb_array"], "video.frames_per_second": 50}
+
+    action_space = spaces.Box(0, 1, (4,), dtype=np.float32)
+    observation_space = spaces.Box(0, 1, (6,), dtype=np.float32)
 
     def __init__(self, dynamics, dt):
-
         # set up the renderer
         self.renderer = Renderer()
         self.renderer.add_object(Ground())
@@ -64,7 +50,7 @@ class QuadRotorEnvBase(gym.Env):
         self.dynamics = dynamics
 
     @staticmethod
-    def get_is_stable(np_state, thresh=.4):
+    def get_is_stable(np_state, thresh=0.4):
         """
         Return for a given state whether the drone is stable or failure
         Returns bool --> if true then still stable
@@ -80,7 +66,7 @@ class QuadRotorEnvBase(gym.Env):
         acc = (self._state.velocity - self._state._last_velocity) / self.dt
         return acc
 
-    def step(self, action, thresh=.4):
+    def step(self, action, thresh=0.4):
         """
         Apply action to the current drone state
         Returns:
@@ -88,11 +74,10 @@ class QuadRotorEnvBase(gym.Env):
             bool indicating whether drone failed
         """
         action = np.clip(self._process_action(action), 0.0, 1.0)
-        assert action.shape == (4, ), f"action not size 4 but {action.shape}"
+        assert action.shape == (4,), f"action not size 4 but {action.shape}"
 
         # set the blade speeds. as F ~ w², and we want F ~ action.
-        torch_state = torch.from_numpy(np.array([self._state.as_np])
-                                       ).to(device)
+        torch_state = torch.from_numpy(np.array([self._state.as_np])).to(device)
         torch_action = torch.from_numpy(np.array([action])).float().to(device)
 
         # dynamics
@@ -110,11 +95,9 @@ class QuadRotorEnvBase(gym.Env):
         # resets the velocity after each step --> we don't want to do that
         # ensure_fixed_position(self._state, 1.0)
 
-        return numpy_out_state, self.get_is_stable(
-            numpy_out_state, thresh=thresh
-        )
+        return numpy_out_state, self.get_is_stable(numpy_out_state, thresh=thresh)
 
-    def render(self, mode='human', close=False):
+    def render(self, mode="human", close=False):
         if not close:
             self.renderer.setup()
 
@@ -141,14 +124,14 @@ class QuadRotorEnvBase(gym.Env):
         self._state.from_np(state_arr)
         return self._state.as_np
 
-    def render_reset(self, strength=.8):
+    def render_reset(self, strength=0.8):
         """
         Reset to a random state, but require z position to be at least 1
         """
         self.reset(strength=strength)
         self._state.position[2] += 2
 
-    def reset(self, strength=.8):
+    def reset(self, strength=0.8):
         """
         Reset drone to a random state
         """
@@ -158,9 +141,7 @@ class QuadRotorEnvBase(gym.Env):
 
         self.randomize_angle(3 * strength)
         self.randomize_angular_velocity(2.0 * strength)
-        self._state.attitude.yaw = self.random_state.uniform(
-            low=-1.5, high=1.5
-        )
+        self._state.attitude.yaw = self.random_state.uniform(low=-1.5, high=1.5)
         self._state.position[:3] = np.random.rand(3) * 2 - 1
         # self.randomize_rotor_speeds(200, 500)
         # yaw control typically expects slower velocities
@@ -189,24 +170,22 @@ class QuadRotorEnvBase(gym.Env):
 
     def randomize_velocity(self, max_speed: float):
         self._state.velocity[:] = self.random_state.uniform(
-            low=-max_speed, high=max_speed, size=(3, )
+            low=-max_speed, high=max_speed, size=(3,)
         )
         self._state._last_velocity = self._state.velocity.copy()
 
     def randomize_rotor_speeds(self, min_speed: float, max_speed: float):
         self._state.rotor_speeds[:] = self.random_state.uniform(
-            low=min_speed, high=max_speed, size=(4, )
+            low=min_speed, high=max_speed, size=(4,)
         )
 
     def randomize_angular_velocity(self, max_speed: float):
         self._state.angular_velocity[:] = self.random_state.uniform(
-            low=-max_speed, high=max_speed, size=(3, )
+            low=-max_speed, high=max_speed, size=(3,)
         )
 
     def randomize_altitude(self, min_: float, max_: float):
-        self._state.position[2] = self.random_state.uniform(
-            low=min_, high=max_
-        )
+        self._state.position[2] = self.random_state.uniform(low=min_, high=max_)
 
 
 def random_angle(random_state, max_pitch_roll):
@@ -230,7 +209,7 @@ def random_angle(random_state, max_pitch_roll):
 
 
 def full_state_training_data(
-    len_data, ref_length=5, dt=0.02, speed_factor=.6, **kwargs
+    len_data, ref_length=5, dt=0.02, speed_factor=0.6, **kwargs
 ):
     """
     Use trajectory generation of Elia to generate random trajectories and then
@@ -246,10 +225,10 @@ def full_state_training_data(
 
     counter = 0
     while counter < len_data:
-        traj = load_prepare_trajectory(
-            "data/traj_data_1", dt, speed_factor, test=0
-        )[:, :ref_size]
-        traj_cut = traj[:-(ref_length + 1)]
+        traj = load_prepare_trajectory("data/traj_data_1", dt, speed_factor, test=0)[
+            :, :ref_size
+        ]
+        traj_cut = traj[: -(ref_length + 1)]
         # select every xth sample as the current drone state
         selected_starts = traj_cut[::sample_freq, :]
         nr_states_added = len(selected_starts)
@@ -258,11 +237,12 @@ def full_state_training_data(
             (selected_starts, np.zeros((len(selected_starts), 3)))
         )
         # add drone states
-        drone_states[counter:counter + nr_states_added, :] = full_drone_state
+        drone_states[counter : counter + nr_states_added, :] = full_drone_state
         # add ref states
         for i in range(1, ref_length + 1):
-            ref_states[counter:counter + nr_states_added,
-                       i - 1] = (traj[i::sample_freq])[:nr_states_added]
+            ref_states[counter : counter + nr_states_added, i - 1] = (
+                traj[i::sample_freq]
+            )[:nr_states_added]
 
         counter += nr_states_added
 
@@ -275,7 +255,7 @@ if __name__ == "__main__":
     states, ref = full_state_training_data(1000)
     # np.save("drone_states.npy", a1)
     # np.save("ref_states.npy", a2)
-    # env = gym.make("QuadrotorStabilizeAttitude-MotorCommands-v0")
+    # env = gymnasium.make("QuadrotorStabilizeAttitude-MotorCommands-v0")
     # states = np.load("check_added_data.npy")
     print(np.mean(states[:, :6], axis=0))
     print(np.std(states[:, :6], axis=0))
@@ -284,4 +264,4 @@ if __name__ == "__main__":
         print([round(s, 2) for s in states[j, :6]])
         env._state.from_np(states[j])
         env.render()
-        time.sleep(.1)
+        time.sleep(0.1)

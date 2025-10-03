@@ -74,7 +74,7 @@ class Renderer:
     def draw_circle(
         self, position, radius, color, filled=True
     ):  # pragma: no cover
-        from gym.envs.classic_control import rendering
+        from gymnasium.envs.classic_control import rendering
         copter = rendering.make_circle(radius, filled=filled)
         copter.set_color(*color)
         if len(position) == 3:
@@ -83,7 +83,7 @@ class Renderer:
         self.viewer.add_onetime(copter)
 
     def draw_polygon(self, v, filled=False):
-        from gym.envs.classic_control import rendering
+        from gymnasium.envs.classic_control import rendering
         airplane = rendering.make_polygon(v, filled=filled)
         self.viewer.add_onetime(airplane)
 
@@ -110,7 +110,7 @@ class Renderer:
             )
 
     def setup(self):
-        from gym.envs.classic_control import rendering
+        from gymnasium.envs.classic_control import rendering
         if self.viewer is None:
             self.viewer = rendering.Viewer(*self.viewer_shape)
 

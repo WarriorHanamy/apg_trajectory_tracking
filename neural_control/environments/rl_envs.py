@@ -1,11 +1,11 @@
-import gym
+import gymnasium as gym
 import math
 import numpy as np
 import torch
 import time
-from gym import spaces
+from gymnasium import spaces
 import cv2
-from gym.utils import seeding
+from gymnasium.utils import seeding
 
 from neural_control.environments.cartpole_env import CartPoleEnv
 from neural_control.environments.wing_env import SimpleWingEnv
