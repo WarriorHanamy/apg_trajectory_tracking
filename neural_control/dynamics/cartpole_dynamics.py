@@ -10,6 +10,13 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from neural_control.dynamics._typing import (
+    ActionTensor,
+    ImageTensor,
+    SequenceBufferTensor,
+    StateTensor,
+)
+
 
 from neural_control.dynamics.learnt_dynamics import (
     LearntDynamics, LearntDynamicsMPC
@@ -59,18 +66,18 @@ class CartpoleDynamics:
 
     def __call__(
         self,
-        state: torch.Tensor,
-        action: torch.Tensor,
+        state: StateTensor,
+        action: ActionTensor,
         dt: float,
-    ) -> torch.Tensor:
+    ) -> StateTensor:
         return self.simulate_cartpole(state, action, dt)
 
     def simulate_cartpole(
         self,
-        state: torch.Tensor,
-        action: torch.Tensor,
+        state: StateTensor,
+        action: ActionTensor,
         delta_t: float,
-    ) -> torch.Tensor:
+    ) -> StateTensor:
         """
         Compute new state from state and action
         """
@@ -105,11 +112,11 @@ class CartpoleDynamics:
 
     def _calculate_xdot_update(
         self,
-        state: torch.Tensor,
-        action: torch.Tensor,
-        sin_theta: torch.Tensor,
-        cos_theta: torch.Tensor,
-    ) -> torch.Tensor:
+        state: StateTensor,
+        action: ActionTensor,
+        sin_theta: StateTensor,
+        cos_theta: StateTensor,
+    ) -> StateTensor:
         # pylint: disable=no-member
         x_dot = state[..., 1]
         theta_dot = state[..., 3]
@@ -124,11 +131,11 @@ class CartpoleDynamics:
 
     def _calculate_thetadot_update(
         self,
-        state: torch.Tensor,
-        action: torch.Tensor,
-        sin_theta: torch.Tensor,
-        cos_theta: torch.Tensor,
-    ) -> torch.Tensor:
+        state: StateTensor,
+        action: ActionTensor,
+        sin_theta: StateTensor,
+        cos_theta: StateTensor,
+    ) -> StateTensor:
         # pylint: disable=no-member
         x_dot = state[..., 1]
         theta_dot = state[..., 3]
@@ -144,11 +151,11 @@ class CartpoleDynamics:
 
     @staticmethod
     def _calculate_theta_update(
-        state: torch.Tensor,
+        state: StateTensor,
         delta_t: float,
-        sin_theta: torch.Tensor,
-        cos_theta: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+        sin_theta: StateTensor,
+        cos_theta: StateTensor,
+    ) -> tuple[StateTensor, StateTensor]:
         sin_theta_dot = torch.sin(state[..., 3] * delta_t)
         cos_theta_dot = torch.cos(state[..., 3] * delta_t)
         new_sintheta = sin_theta * cos_theta_dot + cos_theta * sin_theta_dot
@@ -180,8 +187,8 @@ class LearntCartpoleDynamics(LearntDynamics, CartpoleDynamics):
         self.cfg = torch.nn.ParameterDict(dict_pytorch)
 
     def simulate(
-        self, state: torch.Tensor, action: torch.Tensor, dt: float
-    ) -> torch.Tensor:
+        self, state: StateTensor, action: ActionTensor, dt: float
+    ) -> StateTensor:
         return self.simulate_cartpole(state, action, dt)
 
 
@@ -193,17 +200,17 @@ class SequenceCartpoleDynamics(LearntDynamicsMPC, CartpoleDynamics):
               self).__init__(5 * buffer_length, 1, out_state_size=4)
 
     def simulate(
-        self, state: torch.Tensor, action: torch.Tensor, dt: float
-    ) -> torch.Tensor:
+        self, state: StateTensor, action: ActionTensor, dt: float
+    ) -> StateTensor:
         return self.simulate_cartpole(state, action, dt)
 
     def forward(
         self,
-        state: torch.Tensor,
-        state_action_buffer: torch.Tensor,
-        action: torch.Tensor,
+        state: StateTensor,
+        state_action_buffer: SequenceBufferTensor,
+        action: ActionTensor,
         dt: float,
-    ) -> torch.Tensor:
+    ) -> StateTensor:
         # run through normal simulator f hat
         new_state = self.simulate(state, action, dt)
         # run through residual network delta
@@ -284,11 +291,11 @@ class ImageCartpoleDynamics(torch.nn.Module, CartpoleDynamics):
 
     def forward(
         self,
-        state: torch.Tensor,
-        image: torch.Tensor,
-        action: torch.Tensor,
+        state: StateTensor,
+        image: ImageTensor,
+        action: ActionTensor,
         dt: float,
-    ) -> torch.Tensor:
+    ) -> StateTensor:
         # run through normal simulator f hat
         new_state = self.simulate_cartpole(state, action, dt)
         # encode image and action (common head)

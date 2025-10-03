@@ -5,6 +5,8 @@ from typing import Optional
 import torch
 import torch.nn as nn
 
+from neural_control.dynamics._typing import ActionTensor, StateTensor
+
 
 class LearntDynamicsMPC(torch.nn.Module):
     """
@@ -42,8 +44,8 @@ class LearntDynamicsMPC(torch.nn.Module):
         torch.nn.init.normal_(self.linear_state_3.weight, mean=0.0, std=std)
 
     def state_transformer(
-        self, state: torch.Tensor, action: torch.Tensor
-    ) -> torch.Tensor:
+        self, state: StateTensor, action: ActionTensor
+    ) -> StateTensor:
         state_action = torch.cat((state, action), dim=1)
         layer_1 = torch.tanh(self.linear_state_1(state_action))
         layer_2 = torch.tanh(self.linear_state_2(layer_1))
@@ -51,8 +53,8 @@ class LearntDynamicsMPC(torch.nn.Module):
         return new_state
 
     def forward(
-        self, state: torch.Tensor, action: torch.Tensor, dt: float
-    ) -> torch.Tensor:
+        self, state: StateTensor, action: ActionTensor, dt: float
+    ) -> StateTensor:
         if self.transform_action:
             action = torch.matmul(self.linear_at, torch.unsqueeze(action,
                                                                   2))[:, :, 0]
@@ -90,16 +92,16 @@ class LearntDynamics(torch.nn.Module):
         torch.nn.init.normal_(self.linear_state_2.weight, mean=0.0, std=std)
 
     def state_transformer(
-        self, state: torch.Tensor, action: torch.Tensor
-    ) -> torch.Tensor:
+        self, state: StateTensor, action: ActionTensor
+    ) -> StateTensor:
         state_action = torch.cat((state, action), dim=1)
         layer_1 = torch.relu(self.linear_state_1(state_action))
         new_state = self.linear_state_2(layer_1)
         return new_state
 
     def forward(
-        self, state: torch.Tensor, action: torch.Tensor, dt: float
-    ) -> torch.Tensor:
+        self, state: StateTensor, action: ActionTensor, dt: float
+    ) -> StateTensor:
         if self.transform_action:
             action = torch.matmul(self.linear_at, torch.unsqueeze(action,
                                                                   2))[:, :, 0]

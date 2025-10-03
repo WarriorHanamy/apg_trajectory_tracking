@@ -10,6 +10,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from neural_control.dynamics._typing import ActionTensor, StateTensor
+
 # lower and upper bounds:
 alpha_bound: Final[float] = float(10 / 180 * np.pi)
 
@@ -112,18 +114,18 @@ class FixedWingDynamics:
 
     def __call__(
         self,
-        state: torch.Tensor,
-        action: torch.Tensor,
+        state: StateTensor,
+        action: ActionTensor,
         dt: float,
-    ) -> torch.Tensor:
+    ) -> StateTensor:
         return self.simulate_fixed_wing(state, action, dt)
 
     def simulate_fixed_wing(
         self,
-        state: torch.Tensor,
-        action: torch.Tensor,
+        state: StateTensor,
+        action: ActionTensor,
         dt: float,
-    ) -> torch.Tensor:
+    ) -> StateTensor:
         """
         Dynamics of a fixed wing drone
         """

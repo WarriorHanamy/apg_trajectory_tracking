@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import torch
 import torch.nn as nn
+
+from neural_control.dynamics._typing import ActionTensor, StateTensor
 from neural_control.dynamics.quad_dynamics_flightmare import (
     FlightmareDynamics
 )
@@ -54,8 +56,8 @@ class LearntDynamics(nn.Module, FlightmareDynamics):
         self.torch_kinv_ang_vel_tau = torch.diag(self.torch_kinv_vector)
 
     def state_transformer(
-        self, state: torch.Tensor, action: torch.Tensor
-    ) -> torch.Tensor:
+        self, state: StateTensor, action: ActionTensor
+    ) -> StateTensor:
         state_action = torch.cat((state, action), dim=1)
         layer_1 = torch.relu(self.linear_state_1(state_action))
         new_state = self.linear_state_2(layer_1)
@@ -63,8 +65,8 @@ class LearntDynamics(nn.Module, FlightmareDynamics):
         return new_state
 
     def forward(
-        self, state: torch.Tensor, action: torch.Tensor, dt: float
-    ) -> torch.Tensor:
+        self, state: StateTensor, action: ActionTensor, dt: float
+    ) -> StateTensor:
         action_transformed = torch.matmul(
             self.linear_at, torch.unsqueeze(action, 2)
         )[:, :, 0]

@@ -4,6 +4,7 @@ import casadi as ca
 import numpy as np
 import torch
 
+from neural_control.dynamics._typing import ActionTensor, StateTensor
 from neural_control.dynamics.quad_dynamics_base import Dynamics
 
 
@@ -11,10 +12,10 @@ class SimpleDynamics(Dynamics):
 
     def linear_dynamics(
         self,
-        squared_rotor_speed: torch.Tensor,
-        attitude: torch.Tensor,
-        velocity: torch.Tensor,
-    ) -> torch.Tensor:
+        squared_rotor_speed: ActionTensor,
+        attitude: StateTensor,
+        velocity: StateTensor,
+    ) -> StateTensor:
         """
         Calculates the linear acceleration of a quadcopter with parameters
         `copter_params` that is currently in the dynamics state composed of:
@@ -49,8 +50,8 @@ class SimpleDynamics(Dynamics):
         return thrust_minus_drag
 
     def action_to_body_torques(
-        self, av: torch.Tensor, body_rates: torch.Tensor
-    ) -> torch.Tensor:
+        self, av: StateTensor, body_rates: ActionTensor
+    ) -> StateTensor:
         """
         omega is current angular velocity
         thrust, body_rates: current command
@@ -74,18 +75,18 @@ class SimpleDynamics(Dynamics):
 
     def __call__(
         self,
-        state: torch.Tensor,
-        action: torch.Tensor,
+        state: StateTensor,
+        action: ActionTensor,
         dt: float,
-    ) -> torch.Tensor:
+    ) -> StateTensor:
         return self.simulate_quadrotor(action, state, dt=dt)
 
     def simulate_quadrotor(
         self,
-        action: torch.Tensor,
-        state: torch.Tensor,
+        action: ActionTensor,
+        state: StateTensor,
         dt: float = 0.02,
-    ) -> torch.Tensor:
+    ) -> StateTensor:
         """
         Simulate the dynamics of the quadrotor for the timestep given
         in `dt`. First the rotor speeds are updated according to the desired

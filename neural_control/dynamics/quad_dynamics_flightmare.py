@@ -4,6 +4,7 @@ import casadi as ca
 import numpy as np
 import torch
 
+from neural_control.dynamics._typing import ActionTensor, StateTensor
 from neural_control.dynamics.quad_dynamics_base import Dynamics
 
 
@@ -44,14 +45,14 @@ class FlightmareDynamics(Dynamics):
             ), 1
         )
 
-    def thrust_to_omega(self, thrusts: torch.Tensor) -> torch.Tensor:
+    def thrust_to_omega(self, thrusts: ActionTensor) -> ActionTensor:
         scale = 1.0 / (2.0 * self.thrust_map[0])
         offset = -self.thrust_map[1] * scale
         root = self.thrust_map[
             1]**2 - 4 * self.thrust_map[0] * (self.thrust_map[2] - thrusts)
         return offset + scale * torch.sqrt(root)
 
-    def motorOmegaToThrust(self, motor_omega_: torch.Tensor) -> torch.Tensor:
+    def motorOmegaToThrust(self, motor_omega_: ActionTensor) -> ActionTensor:
         motor_omega_ = torch.unsqueeze(motor_omega_, dim=2)
         omega_poly = torch.cat(
             (motor_omega_**2, motor_omega_, torch.ones(motor_omega_.size())),
@@ -60,8 +61,8 @@ class FlightmareDynamics(Dynamics):
         return torch.matmul(omega_poly, self.thrust_map)
 
     def run_motors(
-        self, dt: float, motor_thrusts_des: torch.Tensor
-    ) -> torch.Tensor:
+        self, dt: float, motor_thrusts_des: ActionTensor
+    ) -> ActionTensor:
         # print("motor_thrusts_des\n", motor_thrusts_des.size())
         motor_omega = self.thrust_to_omega(motor_thrusts_des)
 
@@ -82,10 +83,10 @@ class FlightmareDynamics(Dynamics):
 
     def linear_dynamics(
         self,
-        force: torch.Tensor,
-        attitude: torch.Tensor,
-        velocity: torch.Tensor,
-    ) -> torch.Tensor:
+        force: ActionTensor,
+        attitude: StateTensor,
+        velocity: StateTensor,
+    ) -> StateTensor:
         """
         linear dynamics
         no drag so far
@@ -108,11 +109,11 @@ class FlightmareDynamics(Dynamics):
 
     def run_flight_control(
         self,
-        thrust: torch.Tensor,
-        av: torch.Tensor,
-        body_rates: torch.Tensor,
-        cross_prod: torch.Tensor,
-    ) -> torch.Tensor:
+        thrust: ActionTensor,
+        av: StateTensor,
+        body_rates: ActionTensor,
+        cross_prod: StateTensor,
+    ) -> ActionTensor:
         """
         thrust: command first signal (around 9.81)
         omega = av: current angular velocity
@@ -144,18 +145,18 @@ class FlightmareDynamics(Dynamics):
 
     def __call__(
         self,
-        state: torch.Tensor,
-        action: torch.Tensor,
+        state: StateTensor,
+        action: ActionTensor,
         dt: float,
-    ) -> torch.Tensor:
+    ) -> StateTensor:
         return self.simulate_quadrotor(action, state, dt)
 
     def simulate_quadrotor(
         self,
-        action: torch.Tensor,
-        state: torch.Tensor,
+        action: ActionTensor,
+        state: StateTensor,
         dt: float,
-    ) -> torch.Tensor:
+    ) -> StateTensor:
         """
         Pytorch implementation of the dynamics in Flightmare simulator
         """

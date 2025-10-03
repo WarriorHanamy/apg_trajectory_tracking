@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from typing import Final
+
 import casadi as ca
 import numpy as np
 import torch
-from typing import Final
+
+from neural_control.dynamics._typing import ActionTensor, StateTensor
 
 m = 1.01
 I_xx = 0.04766
@@ -34,10 +37,10 @@ torch_pi = np.pi
 
 
 def fixed_wing_dynamics_2D(
-    state: torch.Tensor,
-    action: torch.Tensor,
+    state: StateTensor,
+    action: ActionTensor,
     dt: float,
-) -> torch.Tensor:
+) -> StateTensor:
     # extract variables
     # state
     x = state[:, 0]  # x position
