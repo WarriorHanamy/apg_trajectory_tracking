@@ -4,31 +4,43 @@ Copied from http://incompleteideas.net/sutton/book/code/pole.c
 permalink: https://perma.cc/C9ZM-652R
 """
 
+from __future__ import annotations
+
+from typing import Any, ClassVar, Sequence
+
 import logging
+import cv2
 import numpy as np
+import numpy.typing as npt
 import torch
+
 from neural_control.dynamics.cartpole_dynamics import (
     CartpoleDynamics,
     ImageCartpoleDynamics,
     SequenceCartpoleDynamics,
 )
-
-
-import cv2
 import neural_control.environments.cartpole_rendering as rendering
 
 logger = logging.getLogger(__name__)
 
 
+FloatArray = npt.NDArray[np.float_]
+ImageArray = npt.NDArray[np.uint8]
+ActionInput = torch.Tensor | np.ndarray | Sequence[float] | float
+
+
 class CartPoleEnv:
-    metadata = {"render.modes": ["human", "rgb_array"], "video.frames_per_second": 50}
+    metadata: ClassVar[dict[str, Any]] = {
+        "render.modes": ["human", "rgb_array"],
+        "video.frames_per_second": 50,
+    }
 
     def __init__(
         self,
         dynamics: CartpoleDynamics | ImageCartpoleDynamics | SequenceCartpoleDynamics,
-        dt,
-        thresh_div=0.21,
-    ):
+        dt: float,
+        thresh_div: float = 0.21,
+    ) -> None:
         self.dynamics = dynamics
         self.is_img_dyn = isinstance(self.dynamics, ImageCartpoleDynamics)
         self.is_seq_dyn = isinstance(self.dynamics, SequenceCartpoleDynamics)
@@ -42,21 +54,27 @@ class CartPoleEnv:
 
         # Angle limit set to 2 * theta_threshold_radians so failing observation
         # is still within bounds
-        self.state_limits = np.array([2.4, 7.5, np.pi, 7.5])
+        self.state_limits: FloatArray = np.array([2.4, 7.5, np.pi, 7.5])
 
-        self.viewer = None
-        self.state = self._reset()
+        self.viewer: rendering.Viewer | None = None
+        self.state: FloatArray = self._reset()
 
-        self.steps_beyond_done = None
+        self.steps_beyond_done: int | None = None
 
-    def is_upright(self):
+    def is_upright(self) -> bool:
         theta = self.state[2]
-        return theta > -self.thresh_div and theta < self.thresh_div
+        return -self.thresh_div < theta < self.thresh_div
 
-    def _step(self, action, image=None, state_action_buffer=None, is_torch=True):
-        torch_state = torch.tensor([list(self.state)])
+    def _step(
+        self,
+        action: ActionInput,
+        image: FloatArray | None = None,
+        state_action_buffer: torch.Tensor | None = None,
+        is_torch: bool = True,
+    ) -> FloatArray:
+        torch_state = torch.tensor([list(self.state)], dtype=torch.float32)
         if not is_torch:
-            action = torch.tensor([action])
+            action = torch.tensor([action], dtype=torch.float32)
         if self.is_img_dyn:
             next_torch_state = self.dynamics(torch_state, image, action, dt=self.dt)
         elif self.is_seq_dyn:
@@ -74,7 +92,7 @@ class CartPoleEnv:
             self.state[2] = 2 * np.pi + theta
         return self.state
 
-    def _reset(self):
+    def _reset(self) -> FloatArray:
         # sample uniformly in the states
         # gauss = np.random.normal(0, 1, 4) / 2.5
         # gauss[0] = (np.random.rand(1) * 2 - 1) * self.x_threshold
@@ -85,7 +103,7 @@ class CartPoleEnv:
         self.steps_beyond_done = None
         return np.array(self.state)
 
-    def _reset_swingup(self):
+    def _reset_swingup(self) -> FloatArray:
         # self.state = np.zeros(4)
         # self.state[2] = 3.14
         # self.state[3] = 1
@@ -97,7 +115,7 @@ class CartPoleEnv:
         self.state[3] *= 0.1
         return self.state
 
-    def _reset_upright(self):
+    def _reset_upright(self) -> FloatArray:
         """
         reset state to a position of the pole close to the optimal upright pos
         """
@@ -107,7 +125,11 @@ class CartPoleEnv:
         self.state[2] = (np.random.rand(1) - 0.5) * 0.1
         return self.state
 
-    def _render(self, mode="human", close=False):
+    def _render(
+        self,
+        mode: str = "human",
+        close: bool = False,
+    ) -> ImageArray | bool | None:
         """
         Drawing function to visualize pendulum - Use after each update!
         """
@@ -170,16 +192,17 @@ class CartPoleEnv:
         self.carttrans.set_translation(cartx, carty)
         self.poletrans.set_rotation(x[2])
 
-        return self.viewer.render(return_rgb_array=mode == "rgb_array")
+        render_result = self.viewer.render(return_rgb_array=mode == "rgb_array")
+        return render_result
 
 
 def construct_states(
-    num_data,
-    dt,
-    save_path="models/minimize_x/state_data.npy",
-    thresh_div=0.21,
+    num_data: int,
+    dt: float,
+    save_path: str = "models/minimize_x/state_data.npy",
+    thresh_div: float = 0.21,
     **kwargs,
-):
+ ) -> FloatArray:
     # define parts of the dataset:
     randomized_runs = 0.8
     upper_balancing = 1
@@ -188,7 +211,7 @@ def construct_states(
     # Sample states
     dyn = CartpoleDynamics()
     env = CartPoleEnv(dyn, dt, thresh_div=thresh_div)
-    data = []
+    data: list[FloatArray] = []
     # randimized runs
     while len(data) < num_data * randomized_runs:
         env._reset()
@@ -234,7 +257,11 @@ def construct_states(
     return data[:num_data]
 
 
-def preprocess_img(image, img_height, img_width):
+def preprocess_img(
+    image: FloatArray | ImageArray,
+    img_height: int,
+    img_width: int,
+) -> FloatArray:
     resized = cv2.resize(
         np.mean(image, axis=2),
         dsize=(img_height, img_width),
@@ -243,7 +270,7 @@ def preprocess_img(image, img_height, img_width):
     return ((255 - resized) > 0).astype(float)
 
 
-def make_state_to_img_dataset(dataset_size=2000):
+def make_state_to_img_dataset(dataset_size: int = 2000) -> None:
     dyn = CartpoleDynamics()
     env = CartPoleEnv(dyn, dt=0.1)
 
@@ -256,7 +283,7 @@ def make_state_to_img_dataset(dataset_size=2000):
     x_range = max_x_diff - min_x_diff
 
     inputs = np.zeros((dataset_size, 2))
-    images = []
+    images: list[FloatArray] = []
     for i in range(dataset_size):
         random_theta = np.random.rand() * theta_range + min_theta
         random_x = np.random.rand() * theta_range + min_theta

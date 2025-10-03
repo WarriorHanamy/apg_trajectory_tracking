@@ -1,15 +1,21 @@
-import gymnasium as gym
+from __future__ import annotations
+
+from typing import Any, Iterable, Sequence
+
 import math
-import numpy as np
-import torch
 import time
-from gymnasium import spaces
+
 import cv2
+import gymnasium as gym
+import numpy as np
+import numpy.typing as npt
+import torch
+from gymnasium import spaces
 from gymnasium.utils import seeding
 
 from neural_control.environments.cartpole_env import CartPoleEnv
 from neural_control.environments.wing_env import SimpleWingEnv
-from neural_control.environments.drone_env import QuadRotorEnvBase
+from neural_control.environments.drone_env import DroneDynamics, QuadRotorEnvBase
 from neural_control.trajectory.q_funcs import project_to_line
 from neural_control.dataset import WingDataset, QuadDataset
 from neural_control.trajectory.generate_trajectory import (
@@ -23,10 +29,16 @@ img_width, img_height = (200, 300)
 crop_width = 60
 center_at_x = True
 
+FloatArray = npt.NDArray[np.floating[Any]]
+ImageArray = npt.NDArray[np.float_]
+UInt8Image = npt.NDArray[np.uint8]
+TorchTensor = torch.Tensor
+Observation = FloatArray | ImageArray
+
 
 class CartPoleEnvRL(gym.Env, CartPoleEnv):
 
-    def __init__(self, dynamics, dt=0.05, **kwargs):
+    def __init__(self, dynamics: Any, dt: float = 0.05, **kwargs: Any) -> None:
         CartPoleEnv.__init__(self, dynamics, dt=dt)
 
         # Angle at which to fail the episode
@@ -53,16 +65,20 @@ class CartPoleEnvRL(gym.Env, CartPoleEnv):
             self.observation_space = spaces.Box(-high, high)
         self.init_buffers()
 
-    def init_buffers(self):
-        self.state_buffer = np.zeros((buffer_len, 4))
-        self.action_buffer = np.zeros((buffer_len, 1))
-        self.image_buffer = np.zeros((buffer_len, 100, 120))
+    def init_buffers(self) -> None:
+        self.state_buffer: FloatArray = np.zeros((buffer_len, 4))
+        self.action_buffer: FloatArray = np.zeros((buffer_len, 1))
+        self.image_buffer: FloatArray = np.zeros((buffer_len, 100, 120))
 
-    def set_state(self, state):
+    def set_state(self, state: FloatArray) -> None:
         self.state = state
         self._state = state
 
-    def _convert_image_buffer(self, state, crop_width=crop_width):
+    def _convert_image_buffer(
+        self,
+        state: FloatArray,
+        crop_width: int = crop_width,
+    ) -> ImageArray:
         # image and corresponding state --> normalize x pos in image buffer!
         img_width_half = self.image_buffer.shape[2] // 2
         if center_at_x:
@@ -78,26 +94,26 @@ class CartPoleEnvRL(gym.Env, CartPoleEnv):
             return self.image_buffer[:, 75:175,
                                      x_img - crop_width:x_img + crop_width]
 
-    def get_reward(self):
+    def get_reward(self) -> float:
         survive_reward = 0.1
         angle_reward = .5 * (1.5 - abs(self.state[2]))
         vel_reward = .4 * (1.5 - abs(self.state[1]))
         return survive_reward + angle_reward + vel_reward
 
-    def get_history_obs(self):
+    def get_history_obs(self) -> FloatArray:
         state_action_history = np.concatenate(
             (self.state_buffer, self.action_buffer), axis=1
         )
         obs = np.reshape(state_action_history, (self.obs_dim))
         return obs
 
-    def get_img_obs(self):
+    def get_img_obs(self) -> ImageArray:
         new_img = self._render(mode="rgb_array")
         self.image_buffer = np.roll(self.image_buffer, 1, axis=0)
         self.image_buffer[0] = self._preprocess_img(new_img)
         return self._convert_image_buffer(self.state)
 
-    def step(self, action):
+    def step(self, action: FloatArray) -> tuple[Observation, float, bool, dict[str, Any]]:
         super()._step(action, is_torch=False)
         # print(self.state)
         done = not self.is_upright() or self.step_ind > 250
@@ -124,7 +140,7 @@ class CartPoleEnvRL(gym.Env, CartPoleEnv):
 
         return self.obs, reward, done, info
 
-    def _preprocess_img(self, image):
+    def _preprocess_img(self, image: UInt8Image) -> ImageArray:
         resized = cv2.resize(
             np.mean(image, axis=2),
             dsize=(img_height, img_width),
@@ -132,7 +148,7 @@ class CartPoleEnvRL(gym.Env, CartPoleEnv):
         )
         return ((255 - resized) > 0).astype(float)
 
-    def reset(self):
+    def reset(self) -> Observation:
         super()._reset_upright()
         for i in range(buffer_len):
             self.state_buffer[i] = self.state
@@ -148,22 +164,29 @@ class CartPoleEnvRL(gym.Env, CartPoleEnv):
         else:
             return self.get_history_obs()
 
-    def seed(self, seed=None):
-        self.np_random, seed = seeding.np_random(seed)
-        return [seed]
+    def seed(self, seed: int | None = None) -> list[int]:
+        self.np_random, seed_out = seeding.np_random(seed)
+        return [int(seed_out)]
 
-    def render(self, mode='human'):
+    def render(self, mode: str = 'human') -> None:
         self._render(mode=mode)
         time.sleep(self.dt)
 
-    def close(self):
+    def close(self) -> None:
         if self.viewer:
             self.viewer.close()
 
 
 class QuadEnvRL(QuadRotorEnvBase, gym.Env):
 
-    def __init__(self, dynamics, dt, speed_factor=.2, horizon=10, **kwargs):
+    def __init__(
+        self,
+        dynamics: DroneDynamics,
+        dt: float,
+        speed_factor: float = 0.2,
+        horizon: int = 10,
+        **kwargs: Any,
+    ) -> None:
         self.dt = dt
         self.speed_factor = speed_factor
         self.horizon = horizon
@@ -187,7 +210,11 @@ class QuadEnvRL(QuadRotorEnvBase, gym.Env):
         kwargs["self_play"] = 0
         self.dataset = QuadDataset(1, **kwargs)
 
-    def prepare_obs(self):
+        self.current_ref: FloatArray = np.zeros((1, 9))
+        self.current_ind = 0
+        self.obs: FloatArray = np.zeros(self.obs_dim)
+
+    def prepare_obs(self) -> tuple[TorchTensor, TorchTensor]:
         obs_state, _, obs_ref, _ = self.dataset.prepare_data(
             self.state.copy(),
             self.current_ref[self.current_ind + 1:self.current_ind +
@@ -195,16 +222,16 @@ class QuadEnvRL(QuadRotorEnvBase, gym.Env):
         )
         return obs_state, obs_ref
 
-    def state_to_obs(self):
+    def state_to_obs(self) -> FloatArray:
         # get from dataset
         obs_state, obs_ref = self.prepare_obs()
         # flatten obs ref
-        obs_ref = obs_ref.reshape((-1, self.obs_dim - self.state_inp_dim))
+        obs_ref_flat = obs_ref.reshape((-1, self.obs_dim - self.state_inp_dim))
         # concatenate relative position and observation
-        obs = torch.cat((obs_ref, obs_state), dim=1)[0].numpy()
+        obs = torch.cat((obs_ref_flat, obs_state), dim=1)[0].numpy()
         return obs
 
-    def reset(self, test=0):
+    def reset(self, test: int = 0) -> FloatArray:
         # load random trajectory from train
         self.current_ref = load_prepare_trajectory(
             "data/traj_data_1", self.dt, self.speed_factor, test=test
@@ -219,12 +246,12 @@ class QuadEnvRL(QuadRotorEnvBase, gym.Env):
         self.obs = self.state_to_obs()
         return self.obs
 
-    def get_divergence(self):
-        return np.linalg.norm(
+    def get_divergence(self) -> float:
+        return float(np.linalg.norm(
             self.current_ref[self.current_ind, :3] - self.state[:3]
-        )
+        ))
 
-    def get_reward_mpc(self, action):
+    def get_reward_mpc(self, action: FloatArray) -> float:
         """
         MPC type cost function turned into reward
         """
@@ -252,9 +279,9 @@ class QuadEnvRL(QuadRotorEnvBase, gym.Env):
             u_rates_factor * np.sum(u_rew[1:]) + u_thrust_factor * u_rew[0]
         )
 
-        return reward
+        return float(reward)
 
-    def get_reward_mario(self, action):
+    def get_reward_mario(self, action: FloatArray) -> float:
         """
         ori_coeff: -0.01        # reward coefficient for orientation
         ang_vel_coeff: 0   # reward coefficient for angular velocity
@@ -302,16 +329,19 @@ class QuadEnvRL(QuadRotorEnvBase, gym.Env):
         #     "pos", pos_reward, "vel", vel_reward, "survive", survive_reward,
         #     "act", act_reward, "ori", ori_reward, "omega", omega_reward
         # )
-        return (
+        return float(
             pos_reward + vel_reward + survive_reward + act_reward +
             ori_reward  # + omega_reward
         )
 
-    def set_state(self, state):
+    def set_state(self, state: FloatArray) -> None:
         self.state = state
         self._state.from_np(state)
 
-    def step(self, action):
+    def step(
+        self,
+        action: FloatArray,
+    ) -> tuple[FloatArray, float, bool, dict[str, Any]]:
         # rescale action
         action = (action + 1) / 2
         self.state, is_stable = QuadRotorEnvBase.step(
@@ -343,9 +373,9 @@ class QuadEnvRL(QuadRotorEnvBase, gym.Env):
         # print(self.state)
         # print(self.obs.shape)
         # print(div, reward)
-        return self.obs, reward, done, info
+        return self.obs, float(reward), done, info
 
-    def render(self, mode="human"):
+    def render(self, mode: str = "human") -> None:
         self._state.position[2] += 1
         QuadRotorEnvBase.render(self, mode=mode)
         self._state.position[2] -= 1
@@ -354,7 +384,7 @@ class QuadEnvRL(QuadRotorEnvBase, gym.Env):
 
 class WingEnvRL(gym.Env, SimpleWingEnv):
 
-    def __init__(self, dynamics, dt, **kwargs):
+    def __init__(self, dynamics: Any, dt: float, **kwargs: Any) -> None:
         SimpleWingEnv.__init__(self, dynamics, dt)
         self.action_space = spaces.Box(low=0, high=1, shape=(4, ))
 
@@ -372,27 +402,35 @@ class WingEnvRL(gym.Env, SimpleWingEnv):
         self.dataset = WingDataset(0, dt=self.dt, **kwargs)
         self.dataset.set_fixed_mean()
 
-    def done(self):
+        self.obs: FloatArray = np.zeros(obs_dim)
+        self.target_point: FloatArray = np.zeros(3)
+
+    def done(self) -> bool:
         # x is greater
         passed = self.state[0] > self.target_point[0]
         # drone unstable
         unstable = np.any(np.absolute(self._state[6:8]) >= self.thresh_stable)
         return unstable or passed
 
-    def prepare_obs(self):
+    def prepare_obs(self) -> tuple[TorchTensor, TorchTensor]:
         obs_state, _, obs_ref, _ = self.dataset.prepare_data(
             self.state, self.target_point
         )
         return obs_state, obs_ref
 
-    def state_to_obs(self):
+    def state_to_obs(self) -> FloatArray:
         # get from dataset
         obs_state, obs_ref = self.prepare_obs()
         # concatenate relative position and observation
         obs = torch.cat((obs_ref, obs_state), dim=1)[0].numpy()
         return obs
 
-    def reset(self, x_dist=50, x_std=5, target_point=None):
+    def reset(
+        self,
+        x_dist: float = 50,
+        x_std: float = 5,
+        target_point: Iterable[float] | None = None,
+    ) -> FloatArray:
         if target_point is None:
             rand_y, rand_z = tuple((np.random.rand(2) - .5) * 2 * x_std)
             self.target_point = np.array([x_dist, rand_y, rand_z])
@@ -405,18 +443,18 @@ class WingEnvRL(gym.Env, SimpleWingEnv):
         self.drone_render_object.set_target([self.target_point])
         return self.obs
 
-    def set_state(self, state):
+    def set_state(self, state: FloatArray) -> None:
         self.state = state
         self._state = state
 
-    def get_divergence(self):
+    def get_divergence(self) -> float:
         drone_on_line = project_to_line(
             np.zeros(3), self.target_point, self.state[:3]
         )
         div = np.linalg.norm(drone_on_line - self.state[:3])
-        return div
+        return float(div)
 
-    def step(self, action):
+    def step(self, action: FloatArray) -> tuple[FloatArray, float, bool, dict[str, Any]]:
         self.state, _ = SimpleWingEnv.step(self, action)
         self.obs = self.state_to_obs()
 
@@ -436,16 +474,22 @@ class WingEnvRL(gym.Env, SimpleWingEnv):
         # print(self.obs)
         # print(div, reward)
 
-        return self.obs, reward, done, info
+        return self.obs, float(reward), done, info
 
-    def render(self, mode="human"):
+    def render(self, mode: str = "human") -> None:
         SimpleWingEnv.render(self, mode=mode)
         time.sleep(self.dt)
 
 
 class QuadEnvMario(QuadEnvRL):
 
-    def __init__(self, dynamics, dt, speed_factor=.5, horizon=1):
+    def __init__(
+        self,
+        dynamics: DroneDynamics,
+        dt: float,
+        speed_factor: float = .5,
+        horizon: int = 1,
+    ) -> None:
         super().__init__(
             dynamics, dt, speed_factor=speed_factor, horizon=horizon
         )

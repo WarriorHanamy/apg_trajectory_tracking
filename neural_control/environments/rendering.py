@@ -1,13 +1,22 @@
-import numpy as np
-from neural_control.environments.cartpole_rendering import LineStyle
-from neural_control.environments.helper_simple_env import Euler
-from mpl_toolkits.mplot3d import axes3d
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
+from __future__ import annotations
+
+from typing import Any, Iterable, Sequence
+
 import time
 
-def body_to_world_matrix(euler):
+import matplotlib.animation as animation
+import matplotlib.pyplot as plt
+import numpy as np
+import numpy.typing as npt
+from mpl_toolkits.mplot3d import axes3d
+
+from neural_control.environments.helper_simple_env import Euler
+
+FloatArray = npt.NDArray[np.floating[Any]]
+Vec3 = npt.NDArray[np.floating[Any]]
+UInt8Image = npt.NDArray[np.uint8]
+
+def body_to_world_matrix(euler: Sequence[float] | FloatArray) -> FloatArray:
     """
     Creates a transformation matrix for directions from a body frame
     to world frame for a body with attitude given by `euler` Euler angles.
@@ -17,7 +26,7 @@ def body_to_world_matrix(euler):
     return np.transpose(world_to_body_matrix(euler))
 
 
-def world_to_body_matrix(euler):
+def world_to_body_matrix(euler: Sequence[float] | FloatArray) -> FloatArray:
     """
     Creates a transformation matrix for directions from world frame
     to body frame for a body with attitude given by `euler` Euler angles.
@@ -43,7 +52,10 @@ def world_to_body_matrix(euler):
     return matrix
 
 
-def body_to_world(euler, vector):
+def body_to_world(
+    euler: Sequence[float] | FloatArray,
+    vector: Sequence[float] | FloatArray,
+) -> FloatArray:
     """
     Transforms a direction `vector` from body to world coordinates,
     where the body frame is given by the Euler angles `euler.
@@ -56,24 +68,42 @@ def body_to_world(euler, vector):
 
 class Renderer:
 
-    def __init__(self, viewer_shape=(500, 500), y_axis=14):
-        self.viewer = None
-        self.center = None
+    def __init__(
+        self,
+        viewer_shape: tuple[int, int] = (500, 500),
+        y_axis: float = 14,
+    ) -> None:
+        self.viewer: Any | None = None
+        self.center: float | None = None
 
         self.scroll_speed = 0.1
-        self.objects = []
+        self.objects: list[RenderedObject] = []
         self.viewer_shape = viewer_shape
         self.y_axis = y_axis
 
-    def draw_line_2d(self, start, end, color=(0, 0, 0)):
+    def draw_line_2d(
+        self,
+        start: tuple[float, float],
+        end: tuple[float, float],
+        color: tuple[float, float, float] = (0, 0, 0),
+    ) -> None:
         self.viewer.draw_line(start, end, color=color)
 
-    def draw_line_3d(self, start, end, color=(0, 0, 0)):
+    def draw_line_3d(
+        self,
+        start: Sequence[float],
+        end: Sequence[float],
+        color: tuple[float, float, float] = (0, 0, 0),
+    ) -> None:
         self.draw_line_2d((start[0], start[2]), (end[0], end[2]), color=color)
 
     def draw_circle(
-        self, position, radius, color, filled=True
-    ):  # pragma: no cover
+        self,
+        position: Sequence[float],
+        radius: float,
+        color: tuple[float, float, float],
+        filled: bool = True,
+    ) -> None:  # pragma: no cover
         from gymnasium.envs.classic_control import rendering
         copter = rendering.make_circle(radius, filled=filled)
         copter.set_color(*color)
@@ -82,15 +112,19 @@ class Renderer:
         copter.add_attr(rendering.Transform(translation=position))
         self.viewer.add_onetime(copter)
 
-    def draw_polygon(self, v, filled=False):
+    def draw_polygon(
+        self,
+        v: Sequence[tuple[float, float]],
+        filled: bool = False,
+    ) -> None:
         from gymnasium.envs.classic_control import rendering
         airplane = rendering.make_polygon(v, filled=filled)
         self.viewer.add_onetime(airplane)
 
-    def add_object(self, new):
+    def add_object(self, new: "RenderedObject") -> None:
         self.objects.append(new)
 
-    def set_center(self, new_center):
+    def set_center(self, new_center: float | None) -> None:
         # new_center is None => We are resetting.
         if new_center is None:
             self.center = None
@@ -109,12 +143,12 @@ class Renderer:
                 -7 + self.center, 7 + self.center, -1, self.y_axis
             )
 
-    def setup(self):
+    def setup(self) -> None:
         from gymnasium.envs.classic_control import rendering
         if self.viewer is None:
             self.viewer = rendering.Viewer(*self.viewer_shape)
 
-    def render(self, mode='human', close=False):
+    def render(self, mode: str = 'human', close: bool = False) -> UInt8Image | bool | None:
         if close:
             self.close()
             return
@@ -127,7 +161,7 @@ class Renderer:
 
         return self.viewer.render(return_rgb_array=(mode == 'rgb_array'))
 
-    def close(self):
+    def close(self) -> None:
         if self.viewer is not None:
             self.viewer.close()
             self.viewer = None
@@ -135,16 +169,16 @@ class Renderer:
 
 class RenderedObject:
 
-    def draw(self, renderer: Renderer):
+    def draw(self, renderer: Renderer) -> None:
         raise NotImplementedError()
 
 
 class Ground(RenderedObject):  # pragma: no cover
 
-    def __init__(self, step_size=2):
+    def __init__(self, step_size: int = 2) -> None:
         self._step_size = step_size
 
-    def draw(self, renderer):
+    def draw(self, renderer: Renderer) -> None:
         """ Draws the ground indicator.
         """
         center = renderer.center
@@ -157,12 +191,12 @@ class Ground(RenderedObject):  # pragma: no cover
 
 class QuadCopter(RenderedObject):  # pragma: no cover
 
-    def __init__(self, source):
+    def __init__(self, source: Any) -> None:
         self.source = source
         self._show_thrust = True
         self.arm_length = 0.31
 
-    def draw(self, renderer):
+    def draw(self, renderer: Renderer) -> None:
         status = self.source._state
 
         # transformed main axis
@@ -193,13 +227,13 @@ class QuadCopter(RenderedObject):  # pragma: no cover
 
     @staticmethod
     def draw_propeller(
-        renderer,
-        euler,
-        position,
-        propeller_position,
-        rotor_speed,
-        arm_length=0.31
-    ):
+        renderer: Renderer,
+        euler: Sequence[float] | FloatArray,
+        position: FloatArray,
+        propeller_position: Sequence[float] | FloatArray,
+        rotor_speed: float,
+        arm_length: float = 0.31,
+    ) -> None:
         structure_line = body_to_world(euler, propeller_position)
         renderer.draw_line_3d(position, position + structure_line)
         renderer.draw_circle(
@@ -213,19 +247,19 @@ class QuadCopter(RenderedObject):  # pragma: no cover
 
 class FixedWingDrone(RenderedObject):
 
-    def __init__(self, source, draw_quad=False):
+    def __init__(self, source: Any, draw_quad: bool = False) -> None:
         self.draw_quad = draw_quad
         self.source = source
         self._show_thrust = True
-        self.targets = [[100, 0, 0]]
+        self.targets: FloatArray = np.array([[100.0, 0.0, 0.0]])
         self.x_normalize = 0.1
         self.z_offset = 5
 
-    def set_target(self, target):
-        self.targets = np.array(target)
+    def set_target(self, target: Iterable[Sequence[float]]) -> None:
+        self.targets = np.array(target, dtype=float)
         self.x_normalize = 14 / np.max(self.targets[:, 0])
 
-    def draw(self, renderer):
+    def draw(self, renderer: Renderer) -> None:
         state = self.source._state.copy()
 
         # transformed main axis
@@ -265,7 +299,7 @@ class FixedWingDrone(RenderedObject):
             self.draw_airplane(renderer, position, trafo)
 
     @staticmethod
-    def quad_as_plane(renderer, trafo, position):
+    def quad_as_plane(renderer: Renderer, trafo: Sequence[float], position: Sequence[float]) -> None:
         rotated = body_to_world(trafo, [0, 0, 0.5])
         renderer.draw_line_3d(position, position + rotated)
 
@@ -275,7 +309,11 @@ class FixedWingDrone(RenderedObject):
         QuadCopter.draw_propeller(renderer, trafo, position, [0, -1, 0], 0)
 
     @staticmethod
-    def draw_airplane(renderer, position, euler):
+    def draw_airplane(
+        renderer: Renderer,
+        position: Sequence[float],
+        euler: Sequence[float],
+    ) -> None:
         # plane definition
         offset = np.array([-5, 0, -1.5])
         scale = .3
@@ -307,20 +345,30 @@ class FixedWingDrone(RenderedObject):
         renderer.draw_polygon(coord_wing_rotated)
 
 
-def draw_line_3d(ax, pos1, pos2, color="black"):
+def draw_line_3d(
+    ax,
+    pos1: Sequence[float],
+    pos2: Sequence[float],
+    color: str = "black",
+):
     x1, x2, x3 = pos1[0], pos1[1], pos1[2]
     y1, y2, y3 = pos2[0], pos2[1], pos2[2]
     ax.plot3D([x1, y1], [x2, y2], [x3, y3], color=color)
     return ax
 
 
-def draw_circle(ax, pos, radius, col="green"):
+def draw_circle(ax, pos: Sequence[float], radius: float, col: str = "green"):
     x, y, z = pos[0], pos[1], pos[2]
     ax.scatter3D(x, y, z, marker="o", s=radius * 100, color=col)
     return ax
 
 
-def draw_quad(ax, position, trafo, c="black"):
+def draw_quad(
+    ax,
+    position: FloatArray,
+    trafo: Sequence[float],
+    c: str = "black",
+):
 
     # draw current orientation
     arm_length = 0.31
@@ -334,7 +382,13 @@ def draw_quad(ax, position, trafo, c="black"):
     return ax
 
 
-def draw_propeller(ax, euler, position, propeller_position, c="black"):
+def draw_propeller(
+    ax,
+    euler: Sequence[float],
+    position: FloatArray,
+    propeller_position: Sequence[float],
+    c: str = "black",
+):
     arm_length = 0.31
     structure_line = body_to_world(euler, propeller_position)
     draw_line_3d(ax, position, position + structure_line, color=c)
@@ -349,7 +403,7 @@ def draw_propeller(ax, euler, position, propeller_position, c="black"):
     # )
 
 
-def plot_ref_quad(ax, ref):
+def plot_ref_quad(ax, ref: FloatArray):
     # initially: plot full reference
     X_ref = ref[:, 0]
     Y_ref = ref[:, 1]
@@ -366,7 +420,7 @@ def plot_ref_quad(ax, ref):
     return ax
 
 
-def set_axes_equal(ax):
+def set_axes_equal(ax) -> None:
     '''Make axes of 3D plot have equal scale so that spheres appear as spheres,
     cubes as cubes, etc..  This is one possible solution to Matplotlib's
     ax.set_aspect('equal') and ax.axis('equal') not working for 3D.
@@ -395,14 +449,19 @@ def set_axes_equal(ax):
     ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
 
 
-def animate_quad(ref, trajectories, savefile=None, names=["APG"]):
+def animate_quad(
+    ref: FloatArray,
+    trajectories: Sequence[FloatArray],
+    savefile: str | None = None,
+    names: Sequence[str] = ("APG",),
+) -> None:
     fig = plt.figure(figsize=(11, 10))
     ax = plt.axes(projection="3d")
 
     ax = plot_ref_quad(ax, ref)
     cols = ["blue", "red", "orange", "purple"]
 
-    def update(i, ax, fig):
+    def update(i: int, ax, fig):
         ax.cla()
         ax = plot_ref_quad(ax, ref)
         for j, traj in enumerate(trajectories):
@@ -438,7 +497,12 @@ def animate_quad(ref, trajectories, savefile=None, names=["APG"]):
     plt.show()
 
 
-def draw_fixed_wing(ax, state_NED, stretch=1, c="black"):
+def draw_fixed_wing(
+    ax,
+    state_NED: FloatArray,
+    stretch: float = 1,
+    c: str = "black",
+):
     state_NWU = state_NED * np.array(
         [1, -1, -1,
          1, -1, -1,
@@ -473,7 +537,7 @@ def draw_fixed_wing(ax, state_NED, stretch=1, c="black"):
     return ax
 
 
-def plot_ref_wing(ax, target_point):
+def plot_ref_wing(ax, target_point: FloatArray):
     # xlim is the maximum point
     target_point_NWU = target_point*np.array([1,-1,-1])
     ax.set_xlim(-1, target_point_NWU[-1, 0])
@@ -504,8 +568,11 @@ def plot_ref_wing(ax, target_point):
 
 
 def animate_fixed_wing(
-    target_point, trajectories, names=["APG"], savefile=None
-):
+    target_point: Iterable[Sequence[float]],
+    trajectories: Sequence[FloatArray],
+    names: Sequence[str] = ("APG",),
+    savefile: str | None = None,
+) -> None:
     traj_lens = [len(t) for t in trajectories]
     dt = 0.05
     target_point = np.array(target_point)
@@ -521,7 +588,7 @@ def animate_fixed_wing(
     cols = ["blue", "red", "orange", "purple"]
     ax = plot_ref_wing(ax, target_point)
 
-    def update(i, ax, fig):
+    def update(i: int, ax, fig):
         ax.cla()
         ax = plot_ref_wing(ax, target_point)
         t_prev = time.time()

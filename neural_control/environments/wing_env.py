@@ -1,11 +1,22 @@
-import torch
-import numpy as np
+from __future__ import annotations
+
+from typing import Any, Sequence
+
 import time
+
+import numpy as np
+import numpy.typing as npt
+import torch
 
 from neural_control.dynamics.fixed_wing_dynamics import FixedWingDynamics
 from neural_control.environments.rendering import (
-    Renderer, Ground, RenderedObject, FixedWingDrone
+    FixedWingDrone,
+    Ground,
+    Renderer,
 )
+
+FloatArray = npt.NDArray[np.floating[Any]]
+ActionArray = npt.NDArray[np.floating[Any]]
 
 
 class SimpleWingEnv():
@@ -13,7 +24,7 @@ class SimpleWingEnv():
     Fixed wing drone environment
     """
 
-    def __init__(self, dynamics, dt):
+    def __init__(self, dynamics: FixedWingDynamics, dt: float) -> None:
         self.dt = dt
         # self.reset()
         self.dynamics = dynamics
@@ -22,11 +33,11 @@ class SimpleWingEnv():
         self.drone_render_object = FixedWingDrone(self)
         self.renderer.add_object(self.drone_render_object)
 
-    def zero_reset(self):
-        self._state = np.zeros(12)
+    def zero_reset(self) -> None:
+        self._state = np.zeros(12, dtype=float)
         self._state[3] = 11.5
 
-    def reset(self):
+    def reset(self) -> None:
         # no need to randomize because relative position used anyway
         x_pos = 0
         z_pos = 0
@@ -37,14 +48,20 @@ class SimpleWingEnv():
         pitch_rate = np.random.rand(1) * 0.01 - 0.005
 
         self._state = np.array(
-            [x_pos, z_pos, vel[0], vel_up[0], pitch_angle[0], pitch_rate[0]]
+            [x_pos, z_pos, vel[0], vel_up[0], pitch_angle[0], pitch_rate[0]],
+            dtype=float,
         )
 
-    def step(self, action, thresh_stable=.7):
+    def step(
+        self,
+        action: ActionArray | torch.Tensor | Sequence[float],
+        thresh_stable: float = .7,
+    ) -> tuple[FloatArray, bool]:
         """
         action: tuple / list/np array of two values, between 0 and 1 (sigmoid)
         """
-        action_torch = torch.tensor([action.tolist()]).float()
+        action_np = np.asarray(action, dtype=float)
+        action_torch = torch.tensor([action_np.tolist()]).float()
         state_torch = torch.tensor([self._state.tolist()]).float()
 
         new_state = self.dynamics(state_torch, action_torch, self.dt)
@@ -55,7 +72,11 @@ class SimpleWingEnv():
         #     print("unstable!", self._state[6:9])
         return self._state, is_stable
 
-    def render(self, mode='human', close=False):
+    def render(
+        self,
+        mode: str = 'human',
+        close: bool = False,
+    ) -> np.ndarray | bool | None:
         if not close:
             self.renderer.setup()
 
@@ -64,16 +85,21 @@ class SimpleWingEnv():
 
         return self.renderer.render(mode, close)
 
-    def close(self):
+    def close(self) -> None:
         self.renderer.close()
 
 
-def run_wing_flight(env, traj_len=1000, render=0, **kwargs):
+def run_wing_flight(
+    env: SimpleWingEnv,
+    traj_len: int = 1000,
+    render: bool = False,
+    **kwargs: Any,
+) -> FloatArray:
 
     # define action prior here
     action_prior = np.array([.25, .5, .5, .5])
     env.zero_reset()
-    sampled_states = []
+    sampled_states: list[FloatArray] = []
     for j in range(traj_len):
         if j % 10 == 0:
             # always keep same action for 10 steps
@@ -94,7 +120,11 @@ def run_wing_flight(env, traj_len=1000, render=0, **kwargs):
     return np.array(sampled_states)
 
 
-def generate_unit_vecs(num_vecs, mean_vec=[1, 0, 0], std=.15):
+def generate_unit_vecs(
+    num_vecs: int,
+    mean_vec: Sequence[float] = (1, 0, 0),
+    std: float = .15,
+) -> FloatArray:
     """
     Generate unit vectors that are normal distributed around mean_vec
     """
@@ -109,8 +139,13 @@ def generate_unit_vecs(num_vecs, mean_vec=[1, 0, 0], std=.15):
 
 
 def sample_training_data(
-    num_samples, dt=0.01, take_every=10, traj_len=500, vec_std=.15, **kwargs
-):
+    num_samples: int,
+    dt: float = 0.01,
+    take_every: int = 10,
+    traj_len: int = 500,
+    vec_std: float = .15,
+    **kwargs: Any,
+) -> tuple[FloatArray, FloatArray]:
     """
     Artificial data generation:
     Fly some trajectories in order to sample drone states
@@ -127,8 +162,8 @@ def sample_training_data(
     env = SimpleWingEnv(dyn, dt)
 
     # combine states and gauss_vecs
-    training_states = []
-    training_refs = []
+    training_states: list[FloatArray] = []
+    training_refs: list[FloatArray] = []
     counter = 0
     leftover = np.inf
     while leftover > 0:

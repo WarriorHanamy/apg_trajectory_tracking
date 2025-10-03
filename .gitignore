@@ -152,6 +152,9 @@ __pycache__/
 *$py.class
 
 
+data/
+
+
 
 # tensorboards
 runs/

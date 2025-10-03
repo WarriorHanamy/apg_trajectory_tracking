@@ -1,50 +1,60 @@
+from __future__ import annotations
+
+from typing import Any
+
 import numpy as np
+import numpy.typing as npt
+
+
+FloatArray = npt.NDArray[np.float_]
+Float32Array = npt.NDArray[np.float32]
+ArrayLike = npt.ArrayLike
 
 
 class DynamicsState(object):
 
-    def __init__(self):
-        self._position = np.zeros(3)
-        self._attitude = Euler(0.0, 0.0, 0.0)
-        self._velocity = np.zeros(3)
-        self._rotorspeeds = np.zeros(4)
-        self._last_velocity = np.zeros(3)
-        self._angular_velocity = np.zeros(3)
+    def __init__(self) -> None:
+        self._position: FloatArray = np.zeros(3, dtype=float)
+        self._attitude: Euler = Euler(0.0, 0.0, 0.0)
+        self._velocity: FloatArray = np.zeros(3, dtype=float)
+        self._rotorspeeds: FloatArray = np.zeros(4, dtype=float)
+        self._last_velocity: FloatArray = np.zeros(3, dtype=float)
+        self._angular_velocity: FloatArray = np.zeros(3, dtype=float)
 
-    def set_position(self, pos):
+    def set_position(self, pos: FloatArray) -> None:
         self._position = pos
 
     @property
-    def position(self):
+    def position(self) -> FloatArray:
         return self._position
 
     @property
-    def attitude(self):
+    def attitude(self) -> Euler:
         return self._attitude
 
     @property
-    def velocity(self):
+    def velocity(self) -> FloatArray:
         return self._velocity
 
     @property
-    def rotor_speeds(self):
+    def rotor_speeds(self) -> FloatArray:
         return self._rotorspeeds
 
     @property
-    def last_velocity(self):
+    def last_velocity(self) -> FloatArray:
         return self._last_velocity
 
     @property
-    def angular_velocity(self):
+    def angular_velocity(self) -> FloatArray:
         return self._angular_velocity
 
     @property
-    def net_rotor_speed(self):
+    def net_rotor_speed(self) -> float:
         return self._rotorspeeds[0] - self._rotorspeeds[1] + self._rotorspeeds[
             2] - self._rotorspeeds[3]
 
     @property
-    def formatted(self):
+    def formatted(self) -> dict[str, FloatArray | Euler]:
         return {
             "position:": self._position,
             "attitude:": self._attitude,
@@ -54,7 +64,7 @@ class DynamicsState(object):
         }
 
     @property
-    def as_np(self):
+    def as_np(self) -> Float32Array:
         """
         Convert state to np array
         """
@@ -66,7 +76,7 @@ class DynamicsState(object):
             dtype=np.float32
         )
 
-    def from_np(self, state_array):
+    def from_np(self, state_array: FloatArray) -> None:
         """
         Convert np array to dynamic state
         """
@@ -89,63 +99,66 @@ class Euler(object):
     except for using the provided setters!
     """
 
-    def __init__(self, roll, pitch, yaw):
-        self._euler = np.array([roll, pitch, yaw])
-        self._cache = {}
+    def __init__(self, roll: float, pitch: float, yaw: float) -> None:
+        self._euler: FloatArray = np.array([roll, pitch, yaw], dtype=float)
+        self._cache: dict[str, Any] = {}
 
     @staticmethod
-    def from_numpy_array(array):
-        array = np.asarray(array)
-        assert array.shape == (3, )
-        return Euler(array[0], array[1], array[2])
+    def from_numpy_array(array: ArrayLike) -> "Euler":
+        array_np = np.asarray(array, dtype=float)
+        assert array_np.shape == (3, )
+        return Euler(float(array_np[0]), float(array_np[1]), float(array_np[2]))
 
     @staticmethod
-    def zero():
-        return Euler(0, 0, 0)
+    def zero() -> "Euler":
+        return Euler(0.0, 0.0, 0.0)
 
     @property
-    def roll(self):
-        return self._euler[0]
+    def roll(self) -> float:
+        return float(self._euler[0])
 
     @roll.setter
-    def roll(self, value):
+    def roll(self, value: float) -> None:
         self._euler[0] = value
         self._cache = {}
 
     @property
-    def pitch(self):
-        return self._euler[1]
+    def pitch(self) -> float:
+        return float(self._euler[1])
 
     @pitch.setter
-    def pitch(self, value):
+    def pitch(self, value: float) -> None:
         self._euler[1] = value
         self._cache = {}
 
     @property
-    def yaw(self):
-        return self._euler[2]
+    def yaw(self) -> float:
+        return float(self._euler[2])
 
     @yaw.setter
-    def yaw(self, value):
+    def yaw(self, value: float) -> None:
         self._euler[2] = value
         self._cache = {}
 
-    def rotate(self, amount):
-        self._euler += amount
+    def rotate(self, amount: ArrayLike) -> None:
+        self._euler = self._euler + np.asarray(amount, dtype=float)
         self._cache = {}
 
-    def rotated(self, amount):
+    def rotated(self, amount: ArrayLike) -> "Euler":
+        amount_np = np.asarray(amount, dtype=float)
         return Euler(
-            self.roll + amount[0], self.pitch + amount[1], self.yaw + amount[2]
+            float(self.roll + amount_np[0]),
+            float(self.pitch + amount_np[1]),
+            float(self.yaw + amount_np[2])
         )
 
-    def add_to_cache(self, key, value):
+    def add_to_cache(self, key: str, value: Any) -> None:
         self._cache[key] = value
 
-    def get_from_cache(self, key):
+    def get_from_cache(self, key: str) -> Any | None:
         return self._cache.get(key)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "Euler(roll=%g, pitch=%g, yaw=%g)" % (
             self.roll, self.pitch, self.yaw
         )

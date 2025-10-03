@@ -2,9 +2,14 @@
 Adapted from https://github.com/ngc92/quadgym
 """
 
+from __future__ import annotations
+
+from typing import Any, Protocol
+
 import math
 import time
 import numpy as np
+import numpy.typing as npt
 import torch
 
 import gymnasium as gym
@@ -16,6 +21,20 @@ from neural_control.environments.helper_simple_env import DynamicsState, Euler
 from neural_control.trajectory.generate_trajectory import load_prepare_trajectory
 
 device = "cpu"  # torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+FloatArray = npt.NDArray[np.floating[Any]]
+UInt8Image = npt.NDArray[np.uint8]
+Tensor = torch.Tensor
+
+
+class DroneDynamics(Protocol):
+    def __call__(
+        self,
+        state: Tensor,
+        action: Tensor,
+        dt: float,
+    ) -> Tensor:
+        ...
 
 
 class QuadRotorEnvBase(gym.Env):
@@ -29,7 +48,7 @@ class QuadRotorEnvBase(gym.Env):
     action_space = spaces.Box(0, 1, (4,), dtype=np.float32)
     observation_space = spaces.Box(0, 1, (6,), dtype=np.float32)
 
-    def __init__(self, dynamics, dt):
+    def __init__(self, dynamics: DroneDynamics, dt: float) -> None:
         # set up the renderer
         self.renderer = Renderer()
         self.renderer.add_object(Ground())
@@ -37,7 +56,7 @@ class QuadRotorEnvBase(gym.Env):
 
         # just initialize the state to default, the rest will be done by reset
         self._state = DynamicsState()
-        self.random_state = None
+        self.random_state: np.random.Generator | None = None
         self.seed()
         # added from motor one
         self._error_target = 1 * np.pi / 180
@@ -50,7 +69,7 @@ class QuadRotorEnvBase(gym.Env):
         self.dynamics = dynamics
 
     @staticmethod
-    def get_is_stable(np_state, thresh=0.4):
+    def get_is_stable(np_state: FloatArray, thresh: float = 0.4) -> bool:
         """
         Return for a given state whether the drone is stable or failure
         Returns bool --> if true then still stable
@@ -59,14 +78,18 @@ class QuadRotorEnvBase(gym.Env):
         attitude_condition = np.all(np.absolute(np_state[3:5]) < thresh)
         return attitude_condition
 
-    def get_acceleration(self):
+    def get_acceleration(self) -> FloatArray:
         """
         Compute acceleration from current state (pos, vel and att)
         """
         acc = (self._state.velocity - self._state._last_velocity) / self.dt
         return acc
 
-    def step(self, action, thresh=0.4):
+    def step(
+        self,
+        action: FloatArray,
+        thresh: float = 0.4,
+    ) -> tuple[FloatArray, bool]:
         """
         Apply action to the current drone state
         Returns:
@@ -97,7 +120,11 @@ class QuadRotorEnvBase(gym.Env):
 
         return numpy_out_state, self.get_is_stable(numpy_out_state, thresh=thresh)
 
-    def render(self, mode="human", close=False):
+    def render(
+        self,
+        mode: str = "human",
+        close: bool = False,
+    ) -> UInt8Image | bool | None:
         if not close:
             self.renderer.setup()
 
@@ -106,10 +133,15 @@ class QuadRotorEnvBase(gym.Env):
 
         return self.renderer.render(mode, close)
 
-    def close(self):
+    def close(self) -> None:
         self.renderer.close()
 
-    def zero_reset(self, position_x=0, position_y=0, position_z=2):
+    def zero_reset(
+        self,
+        position_x: float = 0,
+        position_y: float = 0,
+        position_z: float = 2,
+    ) -> FloatArray:
         """
         Reset to easiest state: zero velocities and attitude and given position
         Arguments:
@@ -124,14 +156,14 @@ class QuadRotorEnvBase(gym.Env):
         self._state.from_np(state_arr)
         return self._state.as_np
 
-    def render_reset(self, strength=0.8):
+    def render_reset(self, strength: float = 0.8) -> None:
         """
         Reset to a random state, but require z position to be at least 1
         """
         self.reset(strength=strength)
         self._state.position[2] += 2
 
-    def reset(self, strength=0.8):
+    def reset(self, strength: float = 0.8) -> DynamicsState:
         """
         Reset drone to a random state
         """
@@ -152,43 +184,53 @@ class QuadRotorEnvBase(gym.Env):
 
         return self._state
 
-    def get_copter_state(self):
+    def get_copter_state(self) -> DynamicsState:
         return self._state
 
-    def _process_action(self, action):
+    def _process_action(self, action: FloatArray) -> FloatArray:
         return action
 
     # ------------ Functions to randomize the state -----------------------
     # env functions
-    def seed(self, seed=None):
-        self.random_state, seed = seeding.np_random(seed)
-        return [seed]
+    def seed(self, seed: int | None = None) -> list[int]:
+        self.random_state, seed_out = seeding.np_random(seed)
+        return [int(seed_out)]
 
     # utility functions
-    def randomize_angle(self, max_pitch_roll: float):
+    def randomize_angle(self, max_pitch_roll: float) -> None:
+        if self.random_state is None:
+            raise RuntimeError("Random state not initialized. Call seed() first.")
         self._state._attitude = random_angle(self.random_state, max_pitch_roll)
 
-    def randomize_velocity(self, max_speed: float):
+    def randomize_velocity(self, max_speed: float) -> None:
+        if self.random_state is None:
+            raise RuntimeError("Random state not initialized. Call seed() first.")
         self._state.velocity[:] = self.random_state.uniform(
             low=-max_speed, high=max_speed, size=(3,)
         )
         self._state._last_velocity = self._state.velocity.copy()
 
-    def randomize_rotor_speeds(self, min_speed: float, max_speed: float):
+    def randomize_rotor_speeds(self, min_speed: float, max_speed: float) -> None:
+        if self.random_state is None:
+            raise RuntimeError("Random state not initialized. Call seed() first.")
         self._state.rotor_speeds[:] = self.random_state.uniform(
             low=min_speed, high=max_speed, size=(4,)
         )
 
-    def randomize_angular_velocity(self, max_speed: float):
+    def randomize_angular_velocity(self, max_speed: float) -> None:
+        if self.random_state is None:
+            raise RuntimeError("Random state not initialized. Call seed() first.")
         self._state.angular_velocity[:] = self.random_state.uniform(
             low=-max_speed, high=max_speed, size=(3,)
         )
 
-    def randomize_altitude(self, min_: float, max_: float):
+    def randomize_altitude(self, min_: float, max_: float) -> None:
+        if self.random_state is None:
+            raise RuntimeError("Random state not initialized. Call seed() first.")
         self._state.position[2] = self.random_state.uniform(low=min_, high=max_)
 
 
-def random_angle(random_state, max_pitch_roll):
+def random_angle(random_state: np.random.Generator, max_pitch_roll: float) -> Euler:
     """
     Returns a random Euler angle
     :param random_state: The random state used to generate the random numbers.
@@ -209,8 +251,12 @@ def random_angle(random_state, max_pitch_roll):
 
 
 def full_state_training_data(
-    len_data, ref_length=5, dt=0.02, speed_factor=0.6, **kwargs
-):
+    len_data: int,
+    ref_length: int = 5,
+    dt: float = 0.02,
+    speed_factor: float = 0.6,
+    **kwargs: Any,
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Use trajectory generation of Elia to generate random trajectories and then
     position the drone randomly around the start
@@ -250,7 +296,12 @@ def full_state_training_data(
 
 
 if __name__ == "__main__":
-    env = QuadRotorEnvBase(0.02)
+    class IdentityDynamics:
+
+        def __call__(self, state: Tensor, action: Tensor, dt: float) -> Tensor:
+            return state
+
+    env = QuadRotorEnvBase(IdentityDynamics(), 0.02)
     env.reset()
     states, ref = full_state_training_data(1000)
     # np.save("drone_states.npy", a1)
